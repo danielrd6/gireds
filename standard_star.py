@@ -53,6 +53,7 @@ ttol = 2
 
 starobj = 'Feige34'
 stdstar = 'feige34'
+caldir = 'onedstds$ctionewcal/'
 
 star_idx = [i for i in idx if ((headers[i]['obstype'] == 'OBJECT')\
     &(headers[i]['obsclass'] == 'partnerCal'))]
@@ -226,7 +227,7 @@ iraf.delete('sens.fits')
 
 iraf.gsstandard(
     (len(star)*'astexlrg{:s}.fits,').format(*star), starname=stdstar,
-    observatory='Gemini-South', sfile='std', sfunction='sens')
+    observatory='Gemini-South', sfile='std', sfunction='sens', caldir=caldir)
 #
 #   Apply flux calibration to galaxy
 #
