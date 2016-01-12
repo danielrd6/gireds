@@ -198,7 +198,7 @@ for i in star:
         fl_wavtran='no', fl_novl='yes', fl_skysub='no', fl_vardq='yes')
 
     #    applylacos('rg{:s}.fits'.format(i), clobber=True)
-    iraf.gemcrspec('rg{:s}.fits'.format(i), out='lr'+i, sigfrac=0.32, 
+    iraf.gemcrspec('rg{:s}.fits'.format(i), out='lrg'+i, sigfrac=0.32, 
          niter=4, fl_vardq='yes')
          
     iraf.gfreduce(
