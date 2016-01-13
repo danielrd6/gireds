@@ -187,10 +187,7 @@ iraf.delete('sens.fits')
 
 for i in star:
     iraf.delete('*g'+i+'.fits')
-    iraf.delete('*rg'+i+'.fits')
-    iraf.delete('*lrg'+i+'.fits')
-    iraf.delete('*xlrg'+i+'.fits')
-
+    
     iraf.gfreduce(
         i, slits='header', rawpath='rawdir$', fl_inter='no',
         fl_addmdf='yes', key_mdf='MDF', mdffile='default', weights='no',
