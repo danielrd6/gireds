@@ -53,6 +53,7 @@ ttol = 2
 
 starobj = 'Feige34'
 stdstar = 'feige34'
+caldir = 'onedstds$ctionewcal/'
 
 star_idx = [i for i in idx if ((headers[i]['obstype'] == 'OBJECT')\
     &(headers[i]['obsclass'] == 'partnerCal'))]
@@ -185,8 +186,8 @@ iraf.delete('std')
 iraf.delete('sens.fits')
 
 for i in star:
-
     iraf.delete('*g'+i+'.fits')
+    
     iraf.gfreduce(
         i, slits='header', rawpath='rawdir$', fl_inter='no',
         fl_addmdf='yes', key_mdf='MDF', mdffile='default', weights='no',
@@ -194,8 +195,10 @@ for i in star:
         fl_flux='no', fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
         fl_wavtran='no', fl_novl='yes', fl_skysub='no', fl_vardq='yes')
 
-    applylacos('rg{:s}.fits'.format(i), clobber=True)
-    
+    #    applylacos('rg{:s}.fits'.format(i), clobber=True)
+    iraf.gemcrspec('rg{:s}.fits'.format(i), out='lrg'+i, sigfrac=0.32, 
+         niter=4, fl_vardq='yes')
+         
     iraf.gfreduce(
         'lrg'+i+'.fits', slits='header', rawpath='./', fl_inter='no',
         fl_addmdf='no', key_mdf='MDF', mdffile='default',
@@ -221,7 +224,7 @@ iraf.delete('sens.fits')
 
 iraf.gsstandard(
     (len(star)*'astexlrg{:s}.fits,').format(*star), starname=stdstar,
-    observatory='Gemini-South', sfile='std', sfunction='sens')
+    observatory='Gemini-South', sfile='std', sfunction='sens', caldir=caldir)
 #
 #   Apply flux calibration to galaxy
 #
