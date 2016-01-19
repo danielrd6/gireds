@@ -6,6 +6,7 @@ import os
 import ConfigParser
 import time
 import glob
+from standard_star import reduce_stdstar
 
 class pipeline():
     """
@@ -23,7 +24,6 @@ class pipeline():
         self.cfg = config
 
         # Define directory structure
-        self.root_dir = config.get('main', 'root_dir')
         self.raw_dir = config.get('main', 'raw_dir')
         self.products_dir = config.get('main', 'products_dir')
         self.run_dir = self.products_dir + time.strftime('%Y-%M-%dT%H:%M:%S')
@@ -74,7 +74,8 @@ class pipeline():
                 'image':j, 'observatory': hdr['observat'],
                 'detector': hdr['detector'], 'grating_wl': hdr['grwlen'],
                 'mjd': mjd, 'grating': hdr['grating'],
-                'filter1': hdr['filter1'], 'obsclass': hdr['obsclass']}
+                'filter1': hdr['filter1'], 'obsclass': hdr['obsclass'],
+                'object': hdr['object']}
 
             element['standard_star'] = [
                 l[k] for k in idx if (
@@ -128,12 +129,29 @@ class pipeline():
 
         for i in std_ims:
             del i['standard_star']
+            #
+            # THIS SHOULD BE CHANGED TO ACCURATELY TRANSLATE STAR NAMES
+            # INTO THE CORRESPONDING NAMES IN CALIBRATION FILES.
+            #
+            i['stdstar'] = i['object'].lower()
 
         self.sci = sci_ims
         self.std = std_ims
+
+    def stdstar(self, dic):
+        
+        cald = self.cfg.get('reduction', 'std_caldir')
+        reduce_stdstar(
+            rawdir=self.raw_dir,
+            rundir=self.run_dir, caldir=cald, starobj=dic['object'],
+            stdstar=dic['stdstar'], flat=dic['flat'], arc=dic['arc'],
+            twilight=dic['twilight'], starimg=dic['image'],
+            bias=dic['bias'])
 
 
 if __name__ == "__main__":
     import sys
     pip = pipeline(sys.argv[1])
     pip.associate_files()
+    print pip.std[0]
+    pip.stdstar(pip.std[0])
