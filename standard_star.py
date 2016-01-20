@@ -19,7 +19,34 @@ import glob
 import time
 
 def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
-    arc, twilight, starimg, bias):
+    arc, twilight, starimg, bias, overscan, vardq):
+    """
+    Reduction pipeline for standard star.
+
+    Parameters
+    ----------
+    rawdir: string
+        Directory containing raw images.
+    rundi: string
+        Directory where processed files are saved.
+    caldir: string
+        Directory containing standard star calibration files.
+    starobj: string
+        Object keyword for the star image.
+    stdstar: string
+        Star name in calibration file.
+    flat: list
+        Names of the files containing flat field images.
+    arc: list
+        Arc images.
+    twilight: list
+        Twilight flat images.
+    starimg: string
+        Name of the file containing the image to be reduced.
+    bias: list
+        Bias images.
+    
+    """
 
     iraf.set(stdimage='imtgmos')
     
@@ -72,19 +99,19 @@ def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
     iraf.gfreduce(
         '@flat.list', slits='header', rawpath='rawdir$', fl_inter='no',
         fl_addmdf='yes', key_mdf='MDF', mdffile='default', weights='no',
-        fl_over='no', fl_trim='yes', fl_bias='yes', trace='yes', t_order=4,
+        fl_over=overscan, fl_trim='yes', fl_bias='yes', trace='yes', t_order=4,
         fl_flux='no', fl_gscrrej='no', fl_extract='yes', fl_gsappwave='no',
         fl_wavtran='no', fl_novl='no', fl_skysub='no', reference='',
-        recenter='yes', fl_vardq='yes')
+        recenter='yes', fl_vardq=vardq)
     
     iraf.gfreduce('@twilight.list', slits='header', rawpath='rawdir$',
         fl_inter='no', fl_addmdf='yes', key_mdf='MDF',
         mdffile='default', weights='no',
-        fl_over='yes', fl_trim='yes', fl_bias='yes', trace='yes',
+        fl_over=overscan, fl_trim='yes', fl_bias='yes', trace='yes',
         recenter='no',
         fl_flux='no', fl_gscrrej='no', fl_extract='yes', fl_gsappwave='no',
         fl_wavtran='no', fl_novl='no', fl_skysub='no',
-        reference='erg'+flat[0], fl_vardq='yes')
+        reference='erg'+flat[0], fl_vardq=vardq)
     #
     #   Response function
     #
@@ -106,10 +133,11 @@ def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
     iraf.gfreduce(
         '@arc.list', slits='header', rawpath='rawdir$', fl_inter='no',
         fl_addmdf='yes', key_mdf='MDF', mdffile='default', weights='no',
-        fl_over='yes', fl_trim='yes', fl_bias='yes', trace='no', recenter='no',
+        fl_over=overscan, fl_trim='yes', fl_bias='yes', trace='no',
+        recenter='no',
         fl_flux='no', fl_gscrrej='no', fl_extract='yes', fl_gsappwave='no',
         fl_wavtran='no', fl_novl='no', fl_skysub='no', reference='erg'+flat[0],
-        fl_vardq='yes')
+        fl_vardq=vardq)
     
     
     #   Finding wavelength solution
@@ -126,55 +154,51 @@ def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
     #   Apply wavelength solution to the lamp 2D spectra
     #
     
-        iraf.gftransform('erg'+i, wavtran='erg'+i, outpref='t', fl_vardq='yes')
+        iraf.gftransform('erg'+i, wavtran='erg'+i, outpref='t', fl_vardq=vardq)
     
     ##
     ##   Actually reduce star
     ##
     
-    iraf.delete('std')
-    iraf.delete('sens.fits')
     
-    for i in [starobj]:
-        iraf.delete('*g'+i+'.fits')
-        
-        iraf.gfreduce(
-            i, slits='header', rawpath='rawdir$', fl_inter='no',
-            fl_addmdf='yes', key_mdf='MDF', mdffile='default', weights='no',
-            fl_over='yes', fl_trim='yes', fl_bias='yes', trace='no',
-            recenter='no',
-            fl_flux='no', fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
-            fl_wavtran='no', fl_novl='yes', fl_skysub='no', fl_vardq='yes')
+    iraf.gfreduce(
+        starimg, slits='header', rawpath='rawdir$', fl_inter='no',
+        fl_addmdf='yes', key_mdf='MDF', mdffile='default', weights='no',
+        fl_over=overscan, fl_trim='yes', fl_bias='yes', trace='no',
+        recenter='no',
+        fl_flux='no', fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
+        fl_wavtran='no', fl_novl='yes', fl_skysub='no', fl_vardq=vardq)
     
-        iraf.gemcrspec('rg{:s}.fits'.format(i), out='lrg'+i, sigfrac=0.32, 
-             niter=4, fl_vardq='yes')
-             
-        iraf.gfreduce(
-            'lrg'+i+'.fits', slits='header', rawpath='./', fl_inter='no',
-            fl_addmdf='no', key_mdf='MDF', mdffile='default',
-            fl_over='no', fl_trim='no', fl_bias='no', trace='no', recenter='no',
-            fl_flux='no', fl_gscrrej='yes', fl_extract='yes', fl_gsappwave='yes',
-            fl_wavtran='yes', fl_novl='no', fl_skysub='yes',
-            reference='erg'+flat[0], weights='no',
-            wavtraname='erg'+arc[0], response='erg'+flat[0]+'_response.fits',
-            fl_vardq='yes')
+    iraf.gemcrspec('rg{:s}'.format(starimg), out='lrg'+starimg, sigfrac=0.32, 
+         niter=4, fl_vardq=vardq)
+         
+    iraf.gfreduce(
+        'lrg'+starimg, slits='header', rawpath='./', fl_inter='no',
+        fl_addmdf='no', key_mdf='MDF', mdffile='default',
+        fl_over='no', fl_trim='no', fl_bias='no', trace='no',
+        recenter='no',
+        fl_flux='no', fl_gscrrej='no', fl_extract='yes',
+        fl_gsappwave='yes',
+        fl_wavtran='yes', fl_novl='no', fl_skysub='yes',
+        reference='erg'+flat[0][:-5], weights='no',
+        wavtraname='erg'+arc[0][:-5],
+        response='erg'+flat[0][:-5]+'_response.fits',
+        fl_vardq=vardq)
     #
     #   Apsumming the stellar spectra
     #
-        iraf.imdelete('astexlrg'+i)
-        iraf.gfapsum(
-            'stexlrg'+i, fl_inter='no', lthreshold=400.,
-            reject='avsigclip')
+    iraf.gfapsum(
+        'stexlrg'+starimg, fl_inter='no', lthreshold=400.,
+        reject='avsigclip')
     #
     #   Building sensibility function
     #
     
-    iraf.delete('std')
-    iraf.delete('sens.fits')
     
     iraf.gsstandard(
-        (len(star)*'astexlrg{:s}.fits,').format(*star), starname=stdstar,
-        observatory='Gemini-South', sfile='std', sfunction='sens', caldir=caldir)
+        ('astexlrg{:s}').format(starimg), starname=stdstar,
+        observatory='Gemini-South', sfile='std', sfunction='sens',
+        caldir=caldir)
     #
     #   Apply flux calibration to galaxy
     #

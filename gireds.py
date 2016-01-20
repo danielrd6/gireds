@@ -23,11 +23,15 @@ class pipeline():
         config.read(config_file)
         self.cfg = config
 
+        self.dry_run = config.getboolean('main', 'dry_run')
+        self.fl_over = config.get('reduction', 'fl_over')
+        self.fl_vardq = config.get('reduction', 'fl_vardq')
+
+        self.reduction_step = config.get('main', 'reduction_step')
         # Define directory structure
         self.raw_dir = config.get('main', 'raw_dir')
         self.products_dir = config.get('main', 'products_dir')
-        self.run_dir = self.products_dir + time.strftime('%Y-%M-%dT%H:%M:%S')
-        self.dry_run = config.getboolean('main', 'dry_run')
+        self.run_dir = self.products_dir + time.strftime('%Y-%m-%dT%H:%M:%S')
 
         if not self.dry_run:
             try:
@@ -55,7 +59,8 @@ class pipeline():
         l.sort()
 
         headers = [pf.getheader(i, ext=0) for i in l]
-        mjds = [pf.getheader(i, ext=1)['mjd-obs'] for i in l]
+        headers_ext1 = [pf.getheader(i, ext=1) for i in l]
+        mjds = [i['mjd-obs'] for i in headers_ext1]
         idx = np.arange(len(l))
 
         images = np.array([
@@ -68,8 +73,8 @@ class pipeline():
 
         for i, j in enumerate(images):
 
-            hdr = pf.getheader(j, ext=0)
-            mjd = pf.getheader(j, ext=1)['mjd-obs']
+            hdr = headers[i]
+            mjd = headers_ext1[i]['mjd-obs']
             element = {
                 'image':j, 'observatory': hdr['observat'],
                 'detector': hdr['detector'], 'grating_wl': hdr['grwlen'],
@@ -120,7 +125,14 @@ class pipeline():
                         'arc_ttol')))]
 
             element['bias'] = [
-                l[k] for k in idx if headers[k]['obstype'] == 'BIAS']
+                l[k] for k in idx if (
+                    (headers[k]['obstype'] == 'BIAS')&
+                    (
+                        (('overscan' in pf.getheader(l[k], ext=1))&
+                        (self.fl_over == 'yes')) or
+                        (('overscan' not in pf.getheader(l[k], ext=1))&
+                        (self.fl_over == 'no'))
+                    ))]
 
             associated.append(element)
 
@@ -138,20 +150,31 @@ class pipeline():
         self.sci = sci_ims
         self.std = std_ims
 
+        file('file_associations_sci.dat', 'w').write(repr(sci_ims))
+        file('file_associations_std.dat', 'w').write(repr(std_ims))
+
     def stdstar(self, dic):
         
         cald = self.cfg.get('reduction', 'std_caldir')
+
         reduce_stdstar(
             rawdir=self.raw_dir,
             rundir=self.run_dir, caldir=cald, starobj=dic['object'],
             stdstar=dic['stdstar'], flat=dic['flat'], arc=dic['arc'],
             twilight=dic['twilight'], starimg=dic['image'],
-            bias=dic['bias'])
+            bias=dic['bias'], overscan=self.fl_over, vardq=self.fl_vardq)
 
 
 if __name__ == "__main__":
     import sys
     pip = pipeline(sys.argv[1])
-    pip.associate_files()
-    print pip.std[0]
-    pip.stdstar(pip.std[0])
+
+    if pip.reduction_step == '0':
+        pip.associate_files()
+
+    if pip.reduction_step == '1':
+        r = file('file_associations_sci.dat', 'r').read()
+        pip.sci = eval(r)
+        r = file('file_associations_std.dat', 'r').read()
+        pip.std = eval(r)
+        pip.stdstar(pip.std[0])
