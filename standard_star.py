@@ -17,6 +17,7 @@ import numpy as np
 import pyfits as pf
 import glob
 import time
+import os
 
 def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
     arc, twilight, starimg, bias, overscan, vardq):
@@ -53,6 +54,8 @@ def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
     iraf.gemini()
     iraf.gemtools()
     iraf.gmos()
+
+    #os.path.isfile('arquivo')
     
     #iraf.unlearn('gemini')
     #iraf.unlearn('gmos')
@@ -133,7 +136,7 @@ def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
     iraf.gfreduce(
         '@arc.list', slits='header', rawpath='rawdir$', fl_inter='no',
         fl_addmdf='yes', key_mdf='MDF', mdffile='default', weights='no',
-        fl_over=overscan, fl_trim='yes', fl_bias='yes', trace='no',
+        fl_over=overscan, fl_trim='yes', fl_bias='no', trace='no',
         recenter='no',
         fl_flux='no', fl_gscrrej='no', fl_extract='yes', fl_gsappwave='no',
         fl_wavtran='no', fl_novl='no', fl_skysub='no', reference='erg'+flat[0],
@@ -188,7 +191,7 @@ def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
     #   Apsumming the stellar spectra
     #
     iraf.gfapsum(
-        'stexlrg'+starimg, fl_inter='no', lthreshold=400.,
+        'stelrg'+starimg, fl_inter='no', lthreshold=400.,
         reject='avsigclip')
     #
     #   Building sensibility function
@@ -196,7 +199,7 @@ def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
     
     
     iraf.gsstandard(
-        ('astexlrg{:s}').format(starimg), starname=stdstar,
+        ('astelrg{:s}').format(starimg), starname=stdstar,
         observatory='Gemini-South', sfile='std', sfunction='sens',
         caldir=caldir)
     #

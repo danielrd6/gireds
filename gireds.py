@@ -73,8 +73,10 @@ class pipeline():
 
         for i, j in enumerate(images):
 
-            hdr = headers[i]
-            mjd = headers_ext1[i]['mjd-obs']
+            # Take greate care when changing this.
+            hdr = pf.getheader(j, ext=0)
+            mjd = pf.getheader(j, ext=1)['mjd-obs']
+
             element = {
                 'image':j, 'observatory': hdr['observat'],
                 'detector': hdr['detector'], 'grating_wl': hdr['grwlen'],
