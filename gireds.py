@@ -158,13 +158,16 @@ class pipeline():
     def stdstar(self, dic):
         
         cald = self.cfg.get('reduction', 'std_caldir')
+        lacosd = self.cfg.get('third_party', 'lacos_loc')
+        std = self.cfg.get('reduction', 'stdstar')
 
         reduce_stdstar(
             rawdir=self.raw_dir,
             rundir=self.run_dir, caldir=cald, starobj=dic['object'],
-            stdstar=dic['stdstar'], flat=dic['flat'], arc=dic['arc'],
+            stdstar=std, flat=dic['flat'], arc=dic['arc'],
             twilight=dic['twilight'], starimg=dic['image'],
-            bias=dic['bias'], overscan=self.fl_over, vardq=self.fl_vardq)
+            bias=dic['bias'], overscan=self.fl_over, vardq=self.fl_vardq,
+            lacosdir=lacosd)
 
 
 if __name__ == "__main__":

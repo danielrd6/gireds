@@ -33,7 +33,6 @@ twilight_ttol: 180.0
 fl_vardq: no  ; Carries the variance and dataquality planes.
 fl_over: yes  ; Subtracts overscan.
 std_caldir: onedstds$spec50cal/
-stdstar: h600
 
 ; Reserved for definitions concerning third party software
 [third_party]
