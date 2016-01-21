@@ -52,6 +52,18 @@ class pipeline():
         calibration exposures to science exposures.
 
         """
+        # Open starinfo file and define structured array
+        # Talvez seja melhor definir fora dessa funcao
+        starinfo_loc = self.cfg.get('third_party', 'starinfo_loc')
+        nstar = sum(1 for line in open(starinfo_loc))
+        infoname = ['obj', 'std', 'caldir', 'altname']
+        infofmt = ['|S25','|S25', '|S25', '|S25']
+        starinfo = np.zeros(nstar,  dtype={'names':infoname, 'formats':infofmt})
+        with open(starinfo_loc, 'r') as arq:
+            for i in range(nstar):
+                linelist = arq.readline().split()
+                for j in range(len(infoname)):
+                    starinfo[i][j] = linelist[j]
        
         os.chdir(self.raw_dir)
 
@@ -141,13 +153,20 @@ class pipeline():
         sci_ims = [i for i in associated if i['obsclass'] == 'science']
         std_ims = [i for i in associated if i['obsclass'] == 'partnerCal']
 
+        #for i in std_ims:
+        #    del i['standard_star']
+        #    #
+        #    # THIS SHOULD BE CHANGED TO ACCURATELY TRANSLATE STAR NAMES
+        #    # INTO THE CORRESPONDING NAMES IN CALIBRATION FILES.
+        #    #
+        #    i['stdstar'] = i['object'].lower()
+
+        # Get star info from starinfo.dat
         for i in std_ims:
-            del i['standard_star']
-            #
-            # THIS SHOULD BE CHANGED TO ACCURATELY TRANSLATE STAR NAMES
-            # INTO THE CORRESPONDING NAMES IN CALIBRATION FILES.
-            #
-            i['stdstar'] = i['object'].lower()
+            starinfo_idx = [j for j,m in enumerate(starinfo['obj']) \
+                              if m==i['object']][0]
+            i['stdstar'] = starinfo[starinfo_idx]['std']
+            i['caldir'] = starinfo[starinfo_idx]['caldir']
 
         self.sci = sci_ims
         self.std = std_ims
@@ -157,14 +176,12 @@ class pipeline():
 
     def stdstar(self, dic):
         
-        cald = self.cfg.get('reduction', 'std_caldir')
         lacosd = self.cfg.get('third_party', 'lacos_loc')
-        std = self.cfg.get('reduction', 'stdstar')
 
         reduce_stdstar(
             rawdir=self.raw_dir,
-            rundir=self.run_dir, caldir=cald, starobj=dic['object'],
-            stdstar=std, flat=dic['flat'], arc=dic['arc'],
+            rundir=self.run_dir, caldir=dic['caldir'], starobj=dic['object'],
+            stdstar=dic['stdstar'], flat=dic['flat'], arc=dic['arc'],
             twilight=dic['twilight'], starimg=dic['image'],
             bias=dic['bias'], overscan=self.fl_over, vardq=self.fl_vardq,
             lacosdir=lacosd, observatory=dic['observatory'])
