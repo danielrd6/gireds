@@ -20,7 +20,7 @@ import time
 import os
 
 def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
-    arc, twilight, starimg, bias, overscan, vardq, lacosdir):
+    arc, twilight, starimg, bias, overscan, vardq, lacosdir, observatory):
     """
     Reduction pipeline for standard star.
 
@@ -195,13 +195,29 @@ def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
         reject='avsigclip')
     #
     #   Building sensibility function
-    #
-    
-    
+    # 
     iraf.gsstandard(
-        ('astelrg{:s}').format(starimg), starname=stdstar,
-        observatory='Gemini-South', sfile='std', sfunction='sens',
+        'astelrg'+starimg, starname=stdstar,
+        observatory=observatory, sfile='std'+starimg, sfunction='sens'+starimg,
         caldir=caldir)
+
+
+    #
+    #   Apply flux calibration to star
+    #
+    iraf.gscalibrate(
+         'stelrg'+starimg, sfuncti='sens'+starimg, 
+         extinct='onedstds$ctioextinct.dat', 
+         observatory=observatory, fluxsca=1, fl_vardq=vardq)
+
+    #
+    #   Create data cubes
+    #
+    iraf.gfcube('cstelrg'+starimg, outimage='dcstelrg'+starimg, ssample=.1, 
+         fl_atmdisp='yes', fl_var=vardq, fl_dq=vardq)
+
+
+
     #
     #   Apply flux calibration to galaxy
     #
