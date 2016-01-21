@@ -141,6 +141,8 @@ class pipeline():
             element['bias'] = [
                 l[k] for k in idx if (
                     (headers[k]['obstype'] == 'BIAS')&
+                    (headers[k]['observat'] == hdr['observat'])&
+                    (headers[k]['detector'] == hdr['detector'])&
                     (
                         (('overscan' in pf.getheader(l[k], ext=1))&
                         (self.fl_over == 'yes')) or
