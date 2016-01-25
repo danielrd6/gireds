@@ -28,6 +28,9 @@ class pipeline():
         self.fl_vardq = config.get('reduction', 'fl_vardq')
 
         self.reduction_step = config.get('main', 'reduction_step')
+        self.single_step = config.getboolean('main', 'single_step')
+        
+        self.starinfo_file = self.cfg.get('associations', 'starinfo_file')
         # Define directory structure
         self.raw_dir = config.get('main', 'raw_dir')
         self.products_dir = config.get('main', 'products_dir')
@@ -53,13 +56,12 @@ class pipeline():
 
         """
         # Open starinfo file and define structured array
-        # Talvez seja melhor definir fora dessa funcao
-        starinfo_loc = self.cfg.get('third_party', 'starinfo_loc')
-        nstar = sum(1 for line in open(starinfo_loc))
+        starinfo_file = self.starinfo_file
+        nstar = sum(1 for line in open(starinfo_file))
         infoname = ['obj', 'std', 'caldir', 'altname']
         infofmt = ['|S25','|S25', '|S25', '|S25']
         starinfo = np.zeros(nstar,  dtype={'names':infoname, 'formats':infofmt})
-        with open(starinfo_loc, 'r') as arq:
+        with open(starinfo_file, 'r') as arq:
             for i in range(nstar):
                 linelist = arq.readline().split()
                 for j in range(len(infoname)):
@@ -155,16 +157,12 @@ class pipeline():
         sci_ims = [i for i in associated if i['obsclass'] == 'science']
         std_ims = [i for i in associated if i['obsclass'] == 'partnerCal']
 
-        #for i in std_ims:
-        #    del i['standard_star']
-        #    #
-        #    # THIS SHOULD BE CHANGED TO ACCURATELY TRANSLATE STAR NAMES
-        #    # INTO THE CORRESPONDING NAMES IN CALIBRATION FILES.
-        #    #
-        #    i['stdstar'] = i['object'].lower()
-
         # Get star info from starinfo.dat
         for i in std_ims:
+            # Removes the 'standard_star' key if the dictionary
+            # element in question refers to a standard star.
+            del i['standard_star']
+
             starinfo_idx = [j for j,m in enumerate(starinfo['obj']) \
                               if m==i['object']][0]
             i['stdstar'] = starinfo[starinfo_idx]['std']
@@ -173,8 +171,13 @@ class pipeline():
         self.sci = sci_ims
         self.std = std_ims
 
-        file('file_associations_sci.dat', 'w').write(repr(sci_ims))
-        file('file_associations_std.dat', 'w').write(repr(std_ims))
+        
+        # Writes the file association dictionary to an ASCII file
+        # in the run directory.
+        if not self.dry_run:
+            os.chdir(self.run_dir)
+            file('file_associations_sci.dat', 'w').write(repr(sci_ims))
+            file('file_associations_std.dat', 'w').write(repr(std_ims))
 
     def stdstar(self, dic):
         
@@ -191,12 +194,27 @@ class pipeline():
 
 if __name__ == "__main__":
     import sys
-    pip = pipeline(sys.argv[1])
 
-    if pip.reduction_step == '0':
+    pip = pipeline(sys.argv[1])
+    print('##################################################\n'\
+          '# GIREDS (Gmos Ifu REDuction Suite)              #\n'\
+          '##################################################\n'\
+          'Starting reduction at: {:s}\n'.format(time.asctime()))
+
+    if (pip.reduction_step == '0') or\
+            ((pip.single_step == False) and (pip.reduction_step >= 0)):
+
+        print('Starting reduction step 0\n'\
+              'on directory {:s}\n'.format(pip.raw_dir))
+
         pip.associate_files()
 
-    if pip.reduction_step == '1':
+    if (pip.reduction_step == '1') or\
+            ((pip.single_step == False) and (pip.reduction_step >= 1)):
+
+        print('Starting reduction step 1\n'\
+              'on directory {:s}\n'.format(pip.run_dir))
+
         r = file('file_associations_sci.dat', 'r').read()
         pip.sci = eval(r)
         r = file('file_associations_std.dat', 'r').read()
