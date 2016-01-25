@@ -19,8 +19,8 @@ import glob
 import time
 import os
 
-def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
-    arc, twilight, starimg, bias, overscan, vardq, lacos, observatory):
+def reduce_science(rawdir, rundir, caldir, starobj, stdstar, flat,
+    arc, twilight, starimg, bias, overscan, vardq, lacosdir, observatory):
     """
     Reduction pipeline for standard star.
 
@@ -60,7 +60,7 @@ def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
     #iraf.unlearn('gemini')
     #iraf.unlearn('gmos')
     
-    iraf.task(lacos_spec=lacos)
+    iraf.task(lacos_spec=lacosdir)
     
     tstart = time.time()
     

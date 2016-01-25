@@ -181,7 +181,7 @@ class pipeline():
 
     def stdstar(self, dic):
         
-        lacosd = self.cfg.get('third_party', 'lacos_loc')
+        lacos_file = self.cfg.get('third_party', 'lacos_file')
 
         reduce_stdstar(
             rawdir=self.raw_dir,
@@ -189,7 +189,7 @@ class pipeline():
             stdstar=dic['stdstar'], flat=dic['flat'], arc=dic['arc'],
             twilight=dic['twilight'], starimg=dic['image'],
             bias=dic['bias'], overscan=self.fl_over, vardq=self.fl_vardq,
-            lacosdir=lacosd, observatory=dic['observatory'])
+            lacos=lacos_file, observatory=dic['observatory'])
 
 
 if __name__ == "__main__":
