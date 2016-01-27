@@ -158,7 +158,8 @@ def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
     #   Apply wavelength solution to the lamp 2D spectra
     #
     
-        iraf.gftransform('erg'+i, wavtran='erg'+i[:-5], outpref='t', fl_vardq='no')
+        iraf.gftransform('erg'+i, wavtran='erg'+i[:-5], outpref='t',
+            fl_vardq='no')
     
     ##
     ##   Actually reduce star
@@ -293,6 +294,3 @@ def mag2flux(wl, mag):
     """
     fnu = 3.68E-20*10**(-0.4*mag)
     return fnu*2.99792458E18/wl/wl
-
-
-    
