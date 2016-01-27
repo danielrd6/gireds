@@ -13,6 +13,7 @@
 # Table of images
 
 from pyraf import iraf
+import matplotlib.pyplot as plt
 import numpy as np
 import pyfits as pf
 import glob
@@ -216,7 +217,28 @@ def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
     iraf.gfcube('cstelrg'+starimg, outimage='dcstelrg'+starimg, ssample=.1, 
          fl_atmdisp='yes', fl_var=vardq, fl_dq=vardq)
 
+    #
+    # Test calibration
+    #
+    iraf.cd(caldir)
+    caldata = np.loadtxt(stdstar+'.dat', unpack=True)
+    iraf.cd('procdir')
+    calflux = mag2flux(caldata[0], caldata[1])
 
+    iraf.gscalibrate(
+        'astelrg'+starimg, sfuncti='sens'+starimg,
+        extinct='onedstds$ctioextinct.dat',
+        observatory=observatory, fluxsca=1)
+    sumflux = pf.getdata('castelrg'+starimg, ext=2)
+    sumhead = pf.getheader('castelrg'+starimg, ext=2)
+    sumwl = sumhead['crval1'] + np.arange(sumhead['naxis1'])*sumhead['cdelt1']
+
+    plt.close('all')
+    plt.plot(sumwl, sumflux, 'b', lw=.5)
+    plt.plot(caldata[0], calflux, 'r', lw=1.5)
+    plt.xlim(sumwl[0]*.99, sumwl[-1]*1.01)
+    plt.ylim(min(calflux)*.8, max(calflux)*1.2)
+    plt.savefig('calib'+starimg[:-5]+'.eps')
 
     #
     #   Apply flux calibration to galaxy
@@ -247,4 +269,30 @@ def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
     tend = time.time()
     
     print('Elapsed time in reduction: {:.2f}'.format(tend - tstart))
+
+def mag2flux(wl, mag):
+    """
+    Convert magnitube[m_AB] to fna (flux per unit wavelenth [ergs/cm/cm/s/A]).
+
+    First, it converts m_AB to fnu (flux per unit frequency [ergs/cm/cm/s/Hz]), 
+    using equation from 'standard' task help from IRAF.
+    Then, it converts fnu to fna with: fna = fnu*c/wl/wl, where c is the 
+    speed of ligth in angstroms/second and wl is the wavelength in angstroms.
+
+    Parameters
+    ----------
+    wl: array
+        Wavelength in angstrons
+    mag: array
+        Magnitude from calibration star
+    
+    Returns
+    -------
+    fna : array
+        Flux per unit wavelength [ergs/cm/cm/s/A]
+    """
+    fnu = 3.68E-20*10**(-0.4*mag)
+    return fnu*2.99792458E18/wl/wl
+
+
     
