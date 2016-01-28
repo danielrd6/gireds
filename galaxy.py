@@ -91,7 +91,7 @@ def reduce_science(rawdir, rundir, caldir, starobj, stdstar, flat,
     
     #######################################################################
     #######################################################################
-    ###   Star reduction                                                  #
+    ###   Galxy reduction                                                 #
     #######################################################################
     #######################################################################
     
@@ -157,7 +157,8 @@ def reduce_science(rawdir, rundir, caldir, starobj, stdstar, flat,
     #   Apply wavelength solution to the lamp 2D spectra
     #
     
-        iraf.gftransform('erg'+i, wavtran='erg'+i[:-5], outpref='t', fl_vardq='no')
+        iraf.gftransform('erg'+i, wavtran='erg'+i[:-5], outpref='t',
+            fl_vardq='no')
     
     ##
     ##   Actually reduce star

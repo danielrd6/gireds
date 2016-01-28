@@ -8,6 +8,19 @@ import time
 import glob
 from standard_star import reduce_stdstar
 
+def closest_in_time(images, target):
+    """
+    Takes a list of images, and returns the one taken closest in time
+    to the target image.
+
+    """
+
+    tgt_mjd = pf.getheader(target, ext=1)['mjd-obs']
+    mjds = np.array([pf.getheader(i, ext=1)['mjd-obs'] for i in images])
+
+    return [images[abs(mjds - tgt_mjd).argsort()[1]]]
+
+
 class pipeline():
     """
     GIREDS - Gmos Ifu REDuction Suite
@@ -27,7 +40,7 @@ class pipeline():
         self.fl_over = config.get('reduction', 'fl_over')
         self.fl_vardq = config.get('reduction', 'fl_vardq')
 
-        self.reduction_step = config.get('main', 'reduction_step')
+        self.reduction_step = config.getint('main', 'reduction_step')
         self.single_step = config.getboolean('main', 'single_step')
         
         self.starinfo_file = self.cfg.get('associations', 'starinfo_file')
@@ -48,7 +61,7 @@ class pipeline():
         if not self.dry_run:
             os.mkdir(self.run_dir)
 
-
+    #@profile
     def associate_files(self):
         """
         Investigates raw_dir for images to be reduced, and associates
@@ -60,7 +73,8 @@ class pipeline():
         nstar = sum(1 for line in open(starinfo_file))
         infoname = ['obj', 'std', 'caldir', 'altname']
         infofmt = ['|S25','|S25', '|S25', '|S25']
-        starinfo = np.zeros(nstar,  dtype={'names':infoname, 'formats':infofmt})
+        starinfo = np.zeros(nstar,  dtype={'names':infoname, 'formats':
+            infofmt})
         with open(starinfo_file, 'r') as arq:
             for i in range(nstar):
                 linelist = arq.readline().split()
@@ -87,9 +101,10 @@ class pipeline():
 
         for i, j in enumerate(images):
 
-            # Take greate care when changing this.
+            # Take great care when changing this.
             hdr = pf.getheader(j, ext=0)
-            mjd = pf.getheader(j, ext=1)['mjd-obs']
+            hdr_ext1 = pf.getheader(j, ext=1)
+            mjd = hdr_ext1['mjd-obs']
 
             element = {
                 'image':j, 'observatory': hdr['observat'],
@@ -120,6 +135,8 @@ class pipeline():
                     (abs(mjds[k] - mjd) <= self.cfg.getfloat('associations',
                         'flat_ttol')))]
 
+
+
             element['twilight'] = [
                 l[k] for k in idx if (
                     (headers[k]['object'] == 'Twilight')&
@@ -145,12 +162,19 @@ class pipeline():
                     (headers[k]['obstype'] == 'BIAS')&
                     (headers[k]['observat'] == hdr['observat'])&
                     (headers[k]['detector'] == hdr['detector'])&
+                    (abs(mjds[k] - mjd) <= self.cfg.getfloat('associations',
+                        'bias_ttol'))&
                     (
-                        (('overscan' in pf.getheader(l[k], ext=1))&
+                        (('overscan' in headers_ext1[k])&
                         (self.fl_over == 'yes')) or
-                        (('overscan' not in pf.getheader(l[k], ext=1))&
+                        (('overscan' not in headers_ext1[k])&
                         (self.fl_over == 'no'))
                     ))]
+
+            categories = ['flat', 'bias', 'arc', 'twilight']
+            for c in categories:
+                if len(element[c]) > 1:
+                    element[c] = closest_in_time(element[c], j)
 
             associated.append(element)
 
@@ -191,6 +215,18 @@ class pipeline():
             bias=dic['bias'], overscan=self.fl_over, vardq=self.fl_vardq,
             lacos=lacos_file, observatory=dic['observatory'])
 
+    def science(self, dic):
+        
+        lacos_file = self.cfg.get('third_party', 'lacos_file')
+
+        reduce_science(
+            rawdir=self.raw_dir,
+            rundir=self.run_dir, caldir=dic['caldir'], starobj=dic['object'],
+            stdstar=dic['stdstar'], flat=dic['flat'], arc=dic['arc'],
+            twilight=dic['twilight'], starimg=dic['image'],
+            bias=dic['bias'], overscan=self.fl_over, vardq=self.fl_vardq,
+            lacos=lacos_file, observatory=dic['observatory'])
+
 
 if __name__ == "__main__":
     import sys
@@ -201,7 +237,7 @@ if __name__ == "__main__":
           '##################################################\n'\
           'Starting reduction at: {:s}\n'.format(time.asctime()))
 
-    if (pip.reduction_step == '0') or\
+    if (pip.reduction_step == 0) or\
             ((pip.single_step == False) and (pip.reduction_step >= 0)):
 
         print('Starting reduction step 0\n'\
@@ -209,7 +245,7 @@ if __name__ == "__main__":
 
         pip.associate_files()
 
-    if (pip.reduction_step == '1') or\
+    if (pip.reduction_step == 1) or\
             ((pip.single_step == False) and (pip.reduction_step >= 1)):
 
         print('Starting reduction step 1\n'\
@@ -220,3 +256,15 @@ if __name__ == "__main__":
         r = file('file_associations_std.dat', 'r').read()
         pip.std = eval(r)
         pip.stdstar(pip.std[0])
+
+    if (pip.reduction_step == 2) or\
+            ((pip.single_step == False) and (pip.reduction_step >= 2)):
+
+        print('Starting reduction step 2\n'\
+              'on directory {:s}\n'.format(pip.run_dir))
+
+        r = file('file_associations_sci.dat', 'r').read()
+        pip.sci = eval(r)
+        r = file('file_associations_std.dat', 'r').read()
+        pip.std = eval(r)
+        pip.science(pip.std[0])
