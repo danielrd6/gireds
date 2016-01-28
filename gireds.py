@@ -44,6 +44,7 @@ class pipeline():
         self.single_step = config.getboolean('main', 'single_step')
         
         self.starinfo_file = self.cfg.get('associations', 'starinfo_file')
+        self.lacos_file = self.cfg.get('third_party', 'lacos_file')
         # Define directory structure
         self.raw_dir = config.get('main', 'raw_dir')
         self.products_dir = config.get('main', 'products_dir')
@@ -194,7 +195,6 @@ class pipeline():
 
         self.sci = sci_ims
         self.std = std_ims
-
         
         # Writes the file association dictionary to an ASCII file
         # in the run directory.
@@ -204,8 +204,6 @@ class pipeline():
             file('file_associations_std.dat', 'w').write(repr(std_ims))
 
     def stdstar(self, dic):
-        
-        lacos_file = self.cfg.get('third_party', 'lacos_file')
 
         reduce_stdstar(
             rawdir=self.raw_dir,
@@ -213,11 +211,9 @@ class pipeline():
             stdstar=dic['stdstar'], flat=dic['flat'], arc=dic['arc'],
             twilight=dic['twilight'], starimg=dic['image'],
             bias=dic['bias'], overscan=self.fl_over, vardq=self.fl_vardq,
-            lacos=lacos_file, observatory=dic['observatory'])
+            lacos=self.lacos_file, observatory=dic['observatory'])
 
     def science(self, dic):
-        
-        lacos_file = self.cfg.get('third_party', 'lacos_file')
 
         reduce_science(
             rawdir=self.raw_dir,
@@ -225,11 +221,13 @@ class pipeline():
             stdstar=dic['stdstar'], flat=dic['flat'], arc=dic['arc'],
             twilight=dic['twilight'], starimg=dic['image'],
             bias=dic['bias'], overscan=self.fl_over, vardq=self.fl_vardq,
-            lacos=lacos_file, observatory=dic['observatory'])
+            lacos=self.lacos_file, observatory=dic['observatory'])
 
 
 if __name__ == "__main__":
     import sys
+
+    cal_categories = np.array(['bias', 'flat', 'twilight', 'arc'])
 
     pip = pipeline(sys.argv[1])
     print('##################################################\n'\
@@ -255,7 +253,20 @@ if __name__ == "__main__":
         pip.sci = eval(r)
         r = file('file_associations_std.dat', 'r').read()
         pip.std = eval(r)
-        pip.stdstar(pip.std[0])
+
+        for star in pip.std:
+
+            cal = np.array([
+                True if star[i] != [] else False for i in cal_categories])
+
+            if not cal.all():
+                print(('ERROR! Image {:s} does not have all the necessary\n'\
+                      'calibration files: '+len(cal[~cal])*'{:s} ')\
+                      .format(star['image'], *cal_categories[~cal]))
+                print('Skipping image {:s}.'.format(star['image']))
+                continue
+            else:
+                pip.stdstar(star)
 
     if (pip.reduction_step == 2) or\
             ((pip.single_step == False) and (pip.reduction_step >= 2)):
@@ -268,3 +279,17 @@ if __name__ == "__main__":
         r = file('file_associations_std.dat', 'r').read()
         pip.std = eval(r)
         pip.science(pip.std[0])
+
+        for sci in pip.sci:
+
+            cal = np.array([
+                True if sci[i] != [] else False for i in cal_categories])
+
+            if not cal.all():
+                print(('ERROR! Image {:s} does not have all the necessary\n'\
+                      'calibration files: '+len(cal[~cal])*'{:s} ')\
+                      .format(sci['image'], *cal_categories[~cal]))
+                print('Skipping image {:s}.'.format(sci['image']))
+                continue
+            else:
+                pip.science(sci)
