@@ -7,6 +7,7 @@ import ConfigParser
 import time
 import glob
 from standard_star import reduce_stdstar
+from galaxy import reduce_science
 
 def closest_in_time(images, target):
     """
@@ -18,7 +19,7 @@ def closest_in_time(images, target):
     tgt_mjd = pf.getheader(target, ext=1)['mjd-obs']
     mjds = np.array([pf.getheader(i, ext=1)['mjd-obs'] for i in images])
 
-    return [images[abs(mjds - tgt_mjd).argsort()[1]]]
+    return images[abs(mjds - tgt_mjd).argsort()[1]]
 
 
 class pipeline():
@@ -43,12 +44,18 @@ class pipeline():
         self.reduction_step = config.getint('main', 'reduction_step')
         self.single_step = config.getboolean('main', 'single_step')
         
-        self.starinfo_file = self.cfg.get('associations', 'starinfo_file')
-        self.lacos_file = self.cfg.get('third_party', 'lacos_file')
+        self.starinfo_file = config.get('associations', 'starinfo_file')
+        self.lacos_file = config.get('third_party', 'lacos_file')
+        self.apply_lacos = config.getboolean('reduction', 'apply_lacos') 
         # Define directory structure
         self.raw_dir = config.get('main', 'raw_dir')
         self.products_dir = config.get('main', 'products_dir')
-        self.run_dir = self.products_dir + time.strftime('%Y-%m-%dT%H:%M:%S')
+
+        if (self.single_step and (self.reduction_step != 0)):
+            self.run_dir = config.get('main', 'run_dir')
+        else:
+            self.run_dir = self.products_dir\
+                + time.strftime('%Y-%m-%dT%H:%M:%S')
 
         if not self.dry_run:
             try:
@@ -58,9 +65,13 @@ class pipeline():
                     pass
                 else:
                     raise err
-
-        if not self.dry_run:
-            os.mkdir(self.run_dir)
+            try:
+                os.mkdir(self.run_dir)
+            except OSError as err:
+                if err.errno == 17:
+                    pass
+                else:
+                    raise err
 
     #@profile
     def associate_files(self):
@@ -136,8 +147,6 @@ class pipeline():
                     (abs(mjds[k] - mjd) <= self.cfg.getfloat('associations',
                         'flat_ttol')))]
 
-
-
             element['twilight'] = [
                 l[k] for k in idx if (
                     (headers[k]['object'] == 'Twilight')&
@@ -172,10 +181,14 @@ class pipeline():
                         (self.fl_over == 'no'))
                     ))]
 
-            categories = ['flat', 'bias', 'arc', 'twilight']
+            categories = ['flat', 'bias', 'arc', 'twilight', 'standard_star']
             for c in categories:
                 if len(element[c]) > 1:
                     element[c] = closest_in_time(element[c], j)
+                elif element[c] == []:
+                    element[c] = ''
+                else:
+                    element[c] = (element[c])[0]
 
             associated.append(element)
 
@@ -211,23 +224,25 @@ class pipeline():
             stdstar=dic['stdstar'], flat=dic['flat'], arc=dic['arc'],
             twilight=dic['twilight'], starimg=dic['image'],
             bias=dic['bias'], overscan=self.fl_over, vardq=self.fl_vardq,
-            lacos=self.lacos_file, observatory=dic['observatory'])
+            lacos=self.lacos_file, observatory=dic['observatory'],
+            apply_lacos=self.apply_lacos)
 
     def science(self, dic):
 
         reduce_science(
             rawdir=self.raw_dir,
-            rundir=self.run_dir, caldir=dic['caldir'], starobj=dic['object'],
-            stdstar=dic['stdstar'], flat=dic['flat'], arc=dic['arc'],
-            twilight=dic['twilight'], starimg=dic['image'],
+            rundir=self.run_dir,
+            flat=dic['flat'], arc=dic['arc'],
+            twilight=dic['twilight'], sciimg=dic['image'],
+            starimg=dic['standard_star'][0],
             bias=dic['bias'], overscan=self.fl_over, vardq=self.fl_vardq,
-            lacos=self.lacos_file, observatory=dic['observatory'])
+            lacos=self.lacos_file, observatory=dic['observatory'],
+            apply_lacos=self.apply_lacos)
 
 
 if __name__ == "__main__":
     import sys
 
-    cal_categories = np.array(['bias', 'flat', 'twilight', 'arc'])
 
     pip = pipeline(sys.argv[1])
     print('##################################################\n'\
@@ -245,19 +260,22 @@ if __name__ == "__main__":
 
     if (pip.reduction_step == 1) or\
             ((pip.single_step == False) and (pip.reduction_step >= 1)):
-
+        
+        os.chdir(pip.run_dir)
         print('Starting reduction step 1\n'\
-              'on directory {:s}\n'.format(pip.run_dir))
+              'on directory {:s}\n'.format(os.getcwd()))
 
         r = file('file_associations_sci.dat', 'r').read()
         pip.sci = eval(r)
         r = file('file_associations_std.dat', 'r').read()
         pip.std = eval(r)
 
+        cal_categories = np.array(['bias', 'flat', 'twilight', 'arc'])
+
         for star in pip.std:
 
             cal = np.array([
-                True if star[i] != [] else False for i in cal_categories])
+                True if star[i] != '' else False for i in cal_categories])
 
             if not cal.all():
                 print(('ERROR! Image {:s} does not have all the necessary\n'\
@@ -271,19 +289,22 @@ if __name__ == "__main__":
     if (pip.reduction_step == 2) or\
             ((pip.single_step == False) and (pip.reduction_step >= 2)):
 
+        os.chdir(pip.run_dir)
         print('Starting reduction step 2\n'\
-              'on directory {:s}\n'.format(pip.run_dir))
+              'on directory {:s}\n'.format(os.getcwd()))
 
         r = file('file_associations_sci.dat', 'r').read()
         pip.sci = eval(r)
         r = file('file_associations_std.dat', 'r').read()
         pip.std = eval(r)
-        pip.science(pip.std[0])
+
+        cal_categories = np.array([
+            'bias', 'flat', 'twilight', 'arc', 'standard_star'])
 
         for sci in pip.sci:
 
             cal = np.array([
-                True if sci[i] != [] else False for i in cal_categories])
+                True if sci[i] != '' else False for i in cal_categories])
 
             if not cal.all():
                 print(('ERROR! Image {:s} does not have all the necessary\n'\

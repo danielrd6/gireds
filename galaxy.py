@@ -19,8 +19,8 @@ import glob
 import time
 import os
 
-def reduce_science(rawdir, rundir, caldir, starobj, stdstar, flat,
-    arc, twilight, starimg, bias, overscan, vardq, lacosdir, observatory):
+def reduce_science(rawdir, rundir, flat, arc, twilight, sciimg,
+        starimg, bias, overscan, vardq, observatory, lacos):
     """
     Reduction pipeline for standard star.
 
@@ -60,7 +60,7 @@ def reduce_science(rawdir, rundir, caldir, starobj, stdstar, flat,
     #iraf.unlearn('gemini')
     #iraf.unlearn('gmos')
     
-    iraf.task(lacos_spec=lacosdir)
+    iraf.task(lacos_spec=lacos)
     
     tstart = time.time()
     
@@ -89,12 +89,6 @@ def reduce_science(rawdir, rundir, caldir, starobj, stdstar, flat,
     
     iraf.gfreduce.bias = 'caldir$'+bias[0]
     
-    #######################################################################
-    #######################################################################
-    ###   Galxy reduction                                                 #
-    #######################################################################
-    #######################################################################
-    
     #
     #   Flat reduction
     #
@@ -119,17 +113,13 @@ def reduce_science(rawdir, rundir, caldir, starobj, stdstar, flat,
     #   Response function
     #
     
-    
     for i, j in enumerate(flat):
-
-        j = j[:-5]
-    
-        iraf.imdelete(j+'_response')
         iraf.gfresponse('erg'+j+'.fits', out='erg'+j+'_response',
             skyimage='erg'+twilight[i], order=95, fl_inter='no',
             func='spline3',
             sample='*', verbose='yes')
-    
+   
+    #
     #   Arc reduction
     #
     
@@ -137,18 +127,16 @@ def reduce_science(rawdir, rundir, caldir, starobj, stdstar, flat,
         '@arc.list', slits='header', rawpath='rawdir$', fl_inter='no',
         fl_addmdf='yes', key_mdf='MDF', mdffile='default', weights='no',
         fl_over=overscan, fl_trim='yes', fl_bias='no', trace='no',
-        recenter='no',
-        fl_flux='no', fl_gscrrej='no', fl_extract='yes', fl_gsappwave='no',
-        fl_wavtran='no', fl_novl='no', fl_skysub='no', reference='erg'+flat[0],
-        fl_vardq='no')
+        recenter='no', fl_flux='no', fl_gscrrej='no', fl_extract='yes',
+        fl_gsappwave='no', fl_wavtran='no', fl_novl='no', fl_skysub='no',
+        reference='erg'+flat[0], fl_vardq='no')
     
-    
+    # 
     #   Finding wavelength solution
     #   Note: the automatic identification is very good
     #
     
     for i in arc:
-        
         iraf.gswavelength('erg'+i, function='chebyshev', nsum=15, order=4,
             fl_inter='no', nlost=5, ntarget=20, aiddebug='s', threshold=5,
             section='middle line')
@@ -160,92 +148,59 @@ def reduce_science(rawdir, rundir, caldir, starobj, stdstar, flat,
         iraf.gftransform('erg'+i, wavtran='erg'+i[:-5], outpref='t',
             fl_vardq='no')
     
-    ##
-    ##   Actually reduce star
-    ##
-    
+    #
+    #   Actually reduce science
+    #
     
     iraf.gfreduce(
-        starimg, slits='header', rawpath='rawdir$', fl_inter='no',
+        sciimg, slits='header', rawpath='rawdir$', fl_inter='no',
         fl_addmdf='yes', key_mdf='MDF', mdffile='default', weights='no',
         fl_over=overscan, fl_trim='yes', fl_bias='yes', trace='no',
-        recenter='no',
-        fl_flux='no', fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
-        fl_wavtran='no', fl_novl='yes', fl_skysub='no', fl_vardq=vardq)
+        recenter='no', fl_flux='no', fl_gscrrej='no', fl_extract='no', 
+        fl_gsappwave='no', fl_wavtran='no', fl_novl='yes', fl_skysub='no', 
+        fl_vardq=vardq)
     
-    iraf.gemcrspec('rg{:s}'.format(starimg), out='lrg'+starimg, sigfrac=0.32, 
+    iraf.gemcrspec(
+         'rg{:s}'.format(sciimg), out='lrg'+sciimg, sigfrac=0.32, 
          niter=4, fl_vardq=vardq)
          
     iraf.gfreduce(
-        'lrg'+starimg, slits='header', rawpath='./', fl_inter='no',
+        'lrg'+sciimg, slits='header', rawpath='./', fl_inter='no',
         fl_addmdf='no', key_mdf='MDF', mdffile='default',
         fl_over='no', fl_trim='no', fl_bias='no', trace='no',
-        recenter='no',
-        fl_flux='no', fl_gscrrej='no', fl_extract='yes',
-        fl_gsappwave='yes',
-        fl_wavtran='yes', fl_novl='no', fl_skysub='yes',
+        recenter='no', fl_flux='no', fl_gscrrej='no', fl_extract='yes',
+        fl_gsappwave='yes', fl_wavtran='yes', fl_novl='no', fl_skysub='yes',
         reference='erg'+flat[0][:-5], weights='no',
         wavtraname='erg'+arc[0][:-5],
-        response='erg'+flat[0][:-5]+'_response.fits',
-        fl_vardq=vardq)
+        response='erg'+flat[0][:-5]+'_response.fits', fl_vardq=vardq)
+    
     #
-    #   Apsumming the stellar spectra
+    #   Apply flux calibration to galaxy
     #
-    iraf.gfapsum(
-        'stelrg'+starimg, fl_inter='no', lthreshold=400.,
-        reject='avsigclip')
-    #
-    #   Building sensibility function
-    # 
-    iraf.gsstandard(
-        'astelrg'+starimg, starname=stdstar,
-        observatory=observatory, sfile='std'+starimg, sfunction='sens'+starimg,
-        caldir=caldir)
 
-
-    #
-    #   Apply flux calibration to star
-    #
     iraf.gscalibrate(
-         'stelrg'+starimg, sfuncti='sens'+starimg, 
+         'stelrg'+sciimg, sfuncti='sens'+starimg, 
          extinct='onedstds$ctioextinct.dat', 
          observatory=observatory, fluxsca=1, fl_vardq=vardq)
 
     #
     #   Create data cubes
     #
-    iraf.gfcube('cstelrg'+starimg, outimage='dcstelrg'+starimg, ssample=.1, 
+
+    iraf.gfcube(
+         'cstelrg'+sciimg, outimage='dcstelrg'+sciimg, ssample=.1, 
          fl_atmdisp='yes', fl_var=vardq, fl_dq=vardq)
-
-
-
+    
     #
-    #   Apply flux calibration to galaxy
+    # Combine cubes
     #
-    #
-    ##iraf.imdelete('cstexlrg@objr4.list')
-    #
-    ##iraf.gscalibrate('stexlrg@objr4.list',sfunction='sens.fits',fl_ext='yes',extinct='onedstds$ctioextinct.dat',observatory='Gemini-South',fluxsca=1)
-    #
-    ##
-    ##   Create data cubes
-    ##
-    #
-    #
-    ##for i in objs:
-    ##  iraf.imdelete('d0.1cstexlrg'+i+'.fits')
-    ##  iraf.gfcube('cstexlrg'+i+'.fits',outpref='d0.1',ssample=0.1,fl_atmd='yes',fl_flux='yes')
-    #
-    ##
-    ## Combine cubes
-    ##
-    #
-    #
-    ##iraf.imdelete('am2306-721r4_wcsoffsets.fits')
-    ##iraf.imcombine('d0.1cstexlrgS20141113S00??.fits[1]',output='am2306-721r4_wcsoffsets.fits',combine='average',reject='sigclip',masktype='badvalue',lsigma=2,hsigma=2,offset='wcs',outlimits='2 67 2 48 100 1795')
+    
+    #iraf.imcombine(
+    #    'dcstelrg'+sciimg, output='cdcstelrg'+sciimg, combine='average',
+    #    reject='sigclip', masktype='badvalue', lsigma=2, hsigma=2,
+    #    offset='wcs', outlimits='2 67 2 48 100 1795')
     #
     
     tend = time.time()
     
     print('Elapsed time in reduction: {:.2f}'.format(tend - tstart))
-    
