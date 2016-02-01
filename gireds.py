@@ -44,6 +44,7 @@ class pipeline():
         self.reduction_step = config.getint('main', 'reduction_step')
         self.single_step = config.getboolean('main', 'single_step')
         
+        self.std_samewl = config.getboolean('associations', 'std_samewl')
         self.starinfo_file = config.get('associations', 'starinfo_file')
         self.lacos_file = config.get('third_party', 'lacos_file')
         self.apply_lacos = config.getboolean('reduction', 'apply_lacos') 
@@ -134,7 +135,10 @@ class pipeline():
                     (headers[k]['detector'] == hdr['detector'])&
                     (headers[k]['grating'] == hdr['grating'])&
                     (headers[k]['filter1'] == hdr['filter1'])&
-                    (headers[k]['grwlen'] == hdr['grwlen'])&
+                    (
+                        ((headers[k]['grwlen'] == hdr['grwlen'])&
+                        (self.std_samewl)) or (not self.std_samewl)
+                    )&
                     (abs(mjds[k] - mjd) <= self.cfg.getfloat('associations',
                         'stdstar_ttol')))]
 
@@ -142,6 +146,7 @@ class pipeline():
                 l[k] for k in idx if (
                     (headers[k]['obstype'] == 'FLAT')&
                     (headers[k]['observat'] == hdr['observat'])&
+                    (headers[k]['grating'] == hdr['grating'])&
                     (headers[k]['grwlen'] == hdr['grwlen'])&
                     (headers[k]['detector'] == hdr['detector'])&
                     (abs(mjds[k] - mjd) <= self.cfg.getfloat('associations',
@@ -154,6 +159,7 @@ class pipeline():
                     (headers[k]['observat'] == hdr['observat'])&
                     (headers[k]['detector'] == hdr['detector'])&
                     #(headers[k]['grwlen'] == hdr['grwlen'])&
+                    (headers[k]['grating'] == hdr['grating'])&
                     (abs(mjds[k] - mjd) <= self.cfg.getfloat('associations',
                         'twilight_ttol')))]
 
@@ -163,6 +169,7 @@ class pipeline():
                     (headers[k]['obstype'] == 'ARC')&
                     (headers[k]['observat'] == hdr['observat'])&
                     (headers[k]['detector'] == hdr['detector'])&
+                    (headers[k]['grating'] == hdr['grating'])&
                     (headers[k]['grwlen'] == hdr['grwlen'])&
                     (abs(mjds[k] - mjd) <= self.cfg.getfloat('associations',
                         'arc_ttol')))]
@@ -219,10 +226,9 @@ class pipeline():
     def stdstar(self, dic):
 
         reduce_stdstar(
-            rawdir=self.raw_dir,
-            rundir=self.run_dir, caldir=dic['caldir'], starobj=dic['object'],
-            stdstar=dic['stdstar'], flat=dic['flat'], arc=dic['arc'],
-            twilight=dic['twilight'], starimg=dic['image'],
+            rawdir=self.raw_dir, rundir=self.run_dir, caldir=dic['caldir'],
+            starobj=dic['object'], stdstar=dic['stdstar'], flat=dic['flat'],
+            arc=dic['arc'], twilight=dic['twilight'], starimg=dic['image'],
             bias=dic['bias'], overscan=self.fl_over, vardq=self.fl_vardq,
             lacos=self.lacos_file, observatory=dic['observatory'],
             apply_lacos=self.apply_lacos)
@@ -230,19 +236,15 @@ class pipeline():
     def science(self, dic):
 
         reduce_science(
-            rawdir=self.raw_dir,
-            rundir=self.run_dir,
-            flat=dic['flat'], arc=dic['arc'],
-            twilight=dic['twilight'], sciimg=dic['image'],
-            starimg=dic['standard_star'][0],
-            bias=dic['bias'], overscan=self.fl_over, vardq=self.fl_vardq,
-            lacos=self.lacos_file, observatory=dic['observatory'],
-            apply_lacos=self.apply_lacos)
+            rawdir=self.raw_dir, rundir=self.run_dir, flat=dic['flat'],
+            arc=dic['arc'], twilight=dic['twilight'], sciimg=dic['image'],
+            starimg=dic['standard_star'], bias=dic['bias'],
+            overscan=self.fl_over, vardq=self.fl_vardq, lacos=self.lacos_file,
+            observatory=dic['observatory'], apply_lacos=self.apply_lacos)
 
 
 if __name__ == "__main__":
     import sys
-
 
     pip = pipeline(sys.argv[1])
     print('##################################################\n'\
