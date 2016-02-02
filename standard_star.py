@@ -19,6 +19,7 @@ import pyfits as pf
 import glob
 import time
 import os
+from reduction import cal_reduction
 
 def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
     arc, twilight, starimg, bias, overscan, vardq, lacos, observatory,
@@ -51,8 +52,6 @@ def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
     
     """
 
-    tstart = time.time()
-
     iraf.set(stdimage='imtgmos')
 
     iraf.task(lacos_spec=lacos)
@@ -82,46 +81,10 @@ def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
 
     
     iraf.gfreduce.bias = 'rawdir$'+bias
-    #
-    #   Flat reduction
-    #
-    iraf.gfreduce(
-        flat+','+twilight, slits='header', rawpath='rawdir$', fl_inter='no',
-        fl_addmdf='yes', key_mdf='MDF', mdffile='default', weights='no',
-        fl_over=overscan, fl_trim='yes', fl_bias='yes', trace='yes', t_order=4,
-        fl_flux='no', fl_gscrrej='no', fl_extract='yes', fl_gsappwave='no',
-        fl_wavtran='no', fl_novl='no', fl_skysub='no', reference='',
-        recenter='yes', fl_vardq=vardq)
-    #
-    #   Response function
-    #
-    iraf.gfresponse(
-        'erg'+flat, out='erg'+flat+'_response',
-        skyimage='erg'+twilight, order=95, fl_inter='no', func='spline3',
-        sample='*', verbose='yes')
-    # 
-    #   Arc reduction
-    #
-    iraf.gfreduce(
-        arc, slits='header', rawpath='rawdir$', fl_inter='no',
-        fl_addmdf='yes', key_mdf='MDF', mdffile='default', weights='no',
-        fl_over=overscan, fl_trim='yes', fl_bias='no', trace='no',
-        recenter='no',
-        fl_flux='no', fl_gscrrej='no', fl_extract='yes', fl_gsappwave='no',
-        fl_wavtran='no', fl_novl='no', fl_skysub='no', reference='erg'+flat,
-        fl_vardq='no')
-    #
-    #   Finding wavelength solution
-    #   Note: the automatic identification is very good
-    #
-    iraf.gswavelength(
-        'erg'+arc, function='chebyshev', nsum=15, order=4, fl_inter='no',
-        nlost=5, ntarget=20, aiddebug='s', threshold=5, section='middle line')
-    #
-    #   Apply wavelength solution to the lamp 2D spectra
-    #
-    iraf.gftransform(
-        'erg'+arc, wavtran='erg'+arc, outpref='t', fl_vardq='no')
+
+    cal_reduction(
+        rawdir=rawdir, rundir=rundir, flat=flat, arc=arc, twilight=twilight,
+        bias=bias, overscan=overscan, vardq=vardq)
     #
     #   Actually reduce star
     #
