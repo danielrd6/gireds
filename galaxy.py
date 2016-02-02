@@ -18,6 +18,7 @@ import pyfits as pf
 import glob
 import time
 import os
+from reduction import cal_reduction
 
 def reduce_science(rawdir, rundir, flat, arc, twilight, sciimg,
         starimg, bias, overscan, vardq, observatory, lacos, apply_lacos):
