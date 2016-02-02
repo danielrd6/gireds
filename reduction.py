@@ -45,8 +45,6 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, overscan,
     #iraf.unlearn('gemini')
     #iraf.unlearn('gmos')
     
-    iraf.task(lacos_spec=lacos)
-    
     #set directories
     iraf.set(rawdir=rawdir)  # raw files
     iraf.set(procdir=rundir)  # processed files
