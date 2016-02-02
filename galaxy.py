@@ -83,47 +83,55 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, sciimg,
     #
     #   Flat reduction
     #
-    
-    iraf.gfreduce(
-        flat+','+twilight, slits='header', rawpath='rawdir$',
-        fl_inter='no',
-        fl_addmdf='yes', key_mdf='MDF', mdffile='default', weights='no',
-        fl_over=overscan, fl_trim='yes', fl_bias='yes',
-        trace='yes', t_order=4,
-        fl_flux='no', fl_gscrrej='no', fl_extract='yes',
-        fl_gsappwave='no',
-        fl_wavtran='no', fl_novl='no', fl_skysub='no', reference='',
-        recenter='yes', fl_vardq=vardq)
+    if not os.path.isfile('erg'+flat+'.fits'):
+        iraf.gfreduce(
+            flat, slits='header', rawpath='rawdir$', fl_inter='no',
+            fl_addmdf='yes', key_mdf='MDF', mdffile='default', weights='no',
+            fl_over=overscan, fl_trim='yes', fl_bias='yes', trace='yes',
+            t_order=4, fl_flux='no', fl_gscrrej='no', fl_extract='yes',
+            fl_gsappwave='no', fl_wavtran='no', fl_novl='no', fl_skysub='no',
+            reference='', recenter='yes', fl_vardq=vardq)
+    if not os.path.isfile('erg'+twilight+'.fits'):
+        iraf.gfreduce(
+            twilight, slits='header', rawpath='rawdir$', fl_inter='no',
+            fl_addmdf='yes', key_mdf='MDF', mdffile='default', weights='no',
+            fl_over=overscan, fl_trim='yes', fl_bias='yes', trace='no',
+            t_order=4, fl_flux='no', fl_gscrrej='no', fl_extract='yes',
+            fl_gsappwave='no', fl_wavtran='no', fl_novl='no', fl_skysub='no',
+            reference='erg'+flat, recenter='no', fl_vardq=vardq)
     #
     #   Response function
     #
-    iraf.gfresponse(
-        'erg'+flat, out='erg'+flat+'_response',
-        skyimage='erg'+twilight, order=95, fl_inter='no', func='spline3',
-        sample='*', verbose='yes')
+    if not os.path.isfile('erg'+flat+'_response.fits'):
+        iraf.gfresponse(
+            'erg'+flat, out='erg'+flat+'_response', skyimage='erg'+twilight,
+            order=95, fl_inter='no', func='spline3', sample='*', verbose='yes')
     #
     #   Arc reduction
     #
-    iraf.gfreduce(
-        arc, slits='header', rawpath='rawdir$', fl_inter='no',
-        fl_addmdf='yes', key_mdf='MDF', mdffile='default', weights='no',
-        fl_over=overscan, fl_trim='yes', fl_bias='no', trace='no',
-        recenter='no', fl_flux='no', fl_gscrrej='no', fl_extract='yes',
-        fl_gsappwave='no', fl_wavtran='no', fl_novl='no', fl_skysub='no',
-        reference='erg'+flat, fl_vardq='no')
+    if not os.path.isfile('erg'+arc+'.fits'):
+        iraf.gfreduce(
+            arc, slits='header', rawpath='rawdir$', fl_inter='no',
+            fl_addmdf='yes', key_mdf='MDF', mdffile='default', weights='no',
+            fl_over=overscan, fl_trim='yes', fl_bias='no', trace='no',
+            recenter='no', fl_flux='no', fl_gscrrej='no', fl_extract='yes',
+            fl_gsappwave='no', fl_wavtran='no', fl_novl='no', fl_skysub='no',
+            reference='erg'+flat, fl_vardq='no')
     # 
     #   Finding wavelength solution
     #   Note: the automatic identification is very good
     #
-    
-    iraf.gswavelength(
-        'erg'+arc, function='chebyshev', nsum=15, order=4, fl_inter='no',
-        nlost=5, ntarget=20, aiddebug='s', threshold=5, section='middle line')
+    if not os.path.isfile('./database/iderg'+arc+'_001'):
+        iraf.gswavelength(
+            'erg'+arc, function='chebyshev', nsum=15, order=4, fl_inter='no',
+            nlost=5, ntarget=20, aiddebug='s', threshold=5,
+            section='middle line')
     #
     #   Apply wavelength solution to the lamp 2D spectra
     #
-    iraf.gftransform(
-        'erg'+arc, wavtran='erg'+arc, outpref='t', fl_vardq='no')
+    if not os.path.isfile('terg'+arc+'_001'): 
+        iraf.gftransform(
+            'erg'+arc, wavtran='erg'+arc, outpref='t', fl_vardq='no')
     #
     #   Actually reduce science
     #
