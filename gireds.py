@@ -158,7 +158,7 @@ class pipeline():
                     (headers[k]['obstype'] == 'OBJECT')&
                     (headers[k]['observat'] == hdr['observat'])&
                     (headers[k]['detector'] == hdr['detector'])&
-                    #(headers[k]['grwlen'] == hdr['grwlen'])&
+                    (headers[k]['grwlen'] == hdr['grwlen'])&
                     (headers[k]['grating'] == hdr['grating'])&
                     (abs(mjds[k] - mjd) <= self.cfg.getfloat('associations',
                         'twilight_ttol')))]
@@ -231,7 +231,9 @@ class pipeline():
             arc=dic['arc'], twilight=dic['twilight'], starimg=dic['image'],
             bias=dic['bias'], overscan=self.fl_over, vardq=self.fl_vardq,
             lacos=self.lacos_file, observatory=dic['observatory'],
-            apply_lacos=self.apply_lacos)
+            apply_lacos=self.apply_lacos,
+            lacos_xorder=self.cfg.getint('reduction', 'lacos_xorder'),
+            lacos_yorder=self.cfg.getint('reduction', 'lacos_yorder'))
 
     def science(self, dic):
 
@@ -240,7 +242,9 @@ class pipeline():
             arc=dic['arc'], twilight=dic['twilight'], sciimg=dic['image'],
             starimg=dic['standard_star'], bias=dic['bias'],
             overscan=self.fl_over, vardq=self.fl_vardq, lacos=self.lacos_file,
-            observatory=dic['observatory'], apply_lacos=self.apply_lacos)
+            observatory=dic['observatory'], apply_lacos=self.apply_lacos,
+            lacos_xorder=self.cfg.getint('reduction', 'lacos_xorder'),
+            lacos_yorder=self.cfg.getint('reduction', 'lacos_yorder'))
 
 
 if __name__ == "__main__":

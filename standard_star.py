@@ -17,13 +17,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pyfits as pf
 import glob
-import time
 import os
 from reduction import cal_reduction
 
 def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
     arc, twilight, starimg, bias, overscan, vardq, lacos, observatory,
-    apply_lacos):
+    apply_lacos, lacos_xorder, lacos_yorder):
     """
     Reduction pipeline for standard star.
 
@@ -98,12 +97,11 @@ def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
     
     if apply_lacos:
         iraf.gemcrspec(
-            'rg'+starimg, out='lrg'+starimg, sigfrac=0.32,
-            niter=4, fl_vardq=vardq)
+            'rg'+starimg, out='lrg'+starimg, sigfrac=0.32, niter=4,
+            fl_vardq=vardq, xorder=lacos_xorder, yorder=lacos_yorder)
         prefix = 'lrg'
     else:
         prefix = 'rg'
-
          
     iraf.gfreduce(
         prefix+starimg, slits='header', rawpath='./', fl_inter='no',
@@ -168,10 +166,6 @@ def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
     plt.ylim(min(calflux)*.8, max(calflux)*1.2)
     plt.savefig('calib'+starimg+'.eps')
     
-    tend = time.time()
-    
-    print('Elapsed time in reduction: {:.2f}'.format(tend - tstart))
-
 def mag2flux(wl, mag):
     """
     Convert magnitube[m_AB] to fna (flux per unit wavelenth

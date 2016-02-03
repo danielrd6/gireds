@@ -16,12 +16,12 @@ from pyraf import iraf
 import numpy as np
 import pyfits as pf
 import glob
-import time
 import os
 from reduction import cal_reduction
 
 def reduce_science(rawdir, rundir, flat, arc, twilight, sciimg,
-        starimg, bias, overscan, vardq, observatory, lacos, apply_lacos):
+        starimg, bias, overscan, vardq, observatory, lacos, apply_lacos,
+        lacos_xorder, lacos_yorder):
     """
     Reduction pipeline for standard star.
 
@@ -63,8 +63,6 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, sciimg,
     
     iraf.task(lacos_spec=lacos)
     
-    tstart = time.time()
-    
     #set directories
     iraf.set(caldir=rawdir)  # 
     iraf.set(rawdir=rawdir)  # raw files
@@ -97,8 +95,8 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, sciimg,
     
     if apply_lacos:
         iraf.gemcrspec(
-            'rg'+sciimg, out='lrg'+sciimg, sigfrac=0.32, 
-            niter=4, fl_vardq=vardq)
+            'rg'+sciimg, out='lrg'+sciimg, sigfrac=0.32, niter=4,
+            fl_vardq=vardq, xorder=lacos_xorder, yorder=lacos_yorder)
         prefix = 'lrg'
     else:
         prefix = 'rg'
@@ -128,7 +126,3 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, sciimg,
     iraf.gfcube(
          prefix+sciimg, outimage='d'+prefix+sciimg, ssample=.1, 
          fl_atmdisp='yes', fl_var=vardq, fl_dq=vardq)
-    
-    tend = time.time()
-    
-    print('Elapsed time in reduction: {:.2f}'.format(tend - tstart))

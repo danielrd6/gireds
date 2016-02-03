@@ -69,14 +69,22 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, overscan,
             t_order=4, fl_flux='no', fl_gscrrej='no', fl_extract='yes',
             fl_gsappwave='no', fl_wavtran='no', fl_novl='no', fl_skysub='no',
             reference='', recenter='yes', fl_vardq=vardq)
-    if not os.path.isfile('erg'+twilight+'.fits'):
-        iraf.gfreduce(
-            twilight, slits='header', rawpath='rawdir$', fl_inter='no',
-            fl_addmdf='yes', key_mdf='MDF', mdffile='default', weights='no',
-            fl_over=overscan, fl_trim='yes', fl_bias='yes', trace='no',
-            t_order=4, fl_flux='no', fl_gscrrej='no', fl_extract='yes',
-            fl_gsappwave='no', fl_wavtran='no', fl_novl='no', fl_skysub='no',
-            reference='erg'+flat, recenter='no', fl_vardq=vardq)
+    
+    #
+    #   The twilight always has to match exactly the extraction of the
+    #   flat field image, therefore it must be re-reduced for every
+    #   new exposure requiring a flat.
+    #
+    if os.path.isfile('erg'+twilight+'.fits'):
+        iraf.delete('*'+twilight+'.fits')
+        iraf.delete('./database/ap*'+twilight+'*')
+    iraf.gfreduce(
+        twilight, slits='header', rawpath='rawdir$', fl_inter='no',
+        fl_addmdf='yes', key_mdf='MDF', mdffile='default', weights='no',
+        fl_over=overscan, fl_trim='yes', fl_bias='yes', trace='no',
+        t_order=4, fl_flux='no', fl_gscrrej='no', fl_extract='yes',
+        fl_gsappwave='no', fl_wavtran='no', fl_novl='no', fl_skysub='no',
+        reference='erg'+flat, recenter='no', fl_vardq=vardq)
     #
     #   Response function
     #
