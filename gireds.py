@@ -194,9 +194,7 @@ class pipeline():
                     (headers[k]['observat'] == hdr['observat'])&
                     (headers[k]['detector'] == hdr['detector'])&
                     (headers_ext1[k]['ccdsum'] == hdr_ext1['ccdsum'])&
-                    (headers_ext1[k]['detsec'] == hdr_ext1['detsec'])&
-                    (abs(mjds[k] - mjd) <= self.cfg.getfloat('associations',
-                        'bias_ttol')))]
+                    (headers_ext1[k]['detsec'] == hdr_ext1['detsec']))]
 
             categories = ['flat', 'bias', 'arc', 'twilight', 'standard_star',
                           'bpm']
