@@ -188,7 +188,18 @@ class pipeline():
                         (self.fl_over == 'no'))
                     ))]
 
-            categories = ['flat', 'bias', 'arc', 'twilight', 'standard_star']
+            element['bpm'] = [
+                l[k] for k in idx if (
+                    (headers[k]['obstype'] == 'BPM')&
+                    (headers[k]['observat'] == hdr['observat'])&
+                    (headers[k]['detector'] == hdr['detector'])&
+                    (headers_ext1[k]['ccdsum'] == hdr_ext1['ccdsum'])&
+                    (headers_ext1[k]['detsec'] == hdr_ext1['detsec'])&
+                    (abs(mjds[k] - mjd) <= self.cfg.getfloat('associations',
+                        'bias_ttol')))]
+
+            categories = ['flat', 'bias', 'arc', 'twilight', 'standard_star',
+                          'bpm']
             for c in categories:
                 if len(element[c]) > 1:
                     element[c] = closest_in_time(element[c], j)
@@ -233,7 +244,8 @@ class pipeline():
             lacos=self.lacos_file, observatory=dic['observatory'],
             apply_lacos=self.apply_lacos,
             lacos_xorder=self.cfg.getint('reduction', 'lacos_xorder'),
-            lacos_yorder=self.cfg.getint('reduction', 'lacos_yorder'))
+            lacos_yorder=self.cfg.getint('reduction', 'lacos_yorder'),
+            bpm=dic['bpm'])
 
     def science(self, dic):
 
@@ -244,7 +256,8 @@ class pipeline():
             overscan=self.fl_over, vardq=self.fl_vardq, lacos=self.lacos_file,
             observatory=dic['observatory'], apply_lacos=self.apply_lacos,
             lacos_xorder=self.cfg.getint('reduction', 'lacos_xorder'),
-            lacos_yorder=self.cfg.getint('reduction', 'lacos_yorder'))
+            lacos_yorder=self.cfg.getint('reduction', 'lacos_yorder'),
+            bpm=dic['bpm'])
 
 
 if __name__ == "__main__":

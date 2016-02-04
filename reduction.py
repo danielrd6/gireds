@@ -15,7 +15,7 @@ import numpy as np
 import pyfits as pf
 import os
 
-def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, overscan,
+def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
         vardq):
     """
     Reduction pipeline for basic calibration images.
@@ -42,8 +42,8 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, overscan,
     iraf.gemtools()
     iraf.gmos()
 
-    #iraf.unlearn('gemini')
-    #iraf.unlearn('gmos')
+    iraf.unlearn('gemini')
+    iraf.unlearn('gmos')
     
     #set directories
     iraf.set(rawdir=rawdir)  # raw files
@@ -57,15 +57,28 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, overscan,
     twilight = twilight.strip('.fits')   
     arc = arc.strip('.fits')
     iraf.gfreduce.bias = 'caldir$'+bias
+    iraf.gireduce.bpm = 'rawdir$'+bpm
     
     #
     #   Flat reduction
     #
-    if not os.path.isfile('erg'+flat+'.fits'):
+    if not os.path.isfile('eprg'+flat+'.fits'):
         iraf.gfreduce(
             flat, slits='header', rawpath='rawdir$', fl_inter='no',
             fl_addmdf='yes', key_mdf='MDF', mdffile='default', weights='no',
-            fl_over=overscan, fl_trim='yes', fl_bias='yes', trace='yes',
+            fl_over=overscan, fl_trim='yes', fl_bias='yes', trace='no',
+            fl_flux='no', fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
+            fl_wavtran='no', fl_novl='no', fl_skysub='no', 
+            recenter='no', fl_vardq=vardq)
+
+        # Gemfix
+        iraf.gemfix('rg'+flat, out='prg'+flat, method='fixpix', 
+             bitmask=1)
+
+        iraf.gfreduce(
+            'prg'+flat, slits='header', rawpath='./', fl_inter='no',
+            fl_addmdf='no', key_mdf='MDF', mdffile='default', weights='no',
+            fl_over=overscan, fl_trim='no', fl_bias='no', trace='yes',
             t_order=4, fl_flux='no', fl_gscrrej='no', fl_extract='yes',
             fl_gsappwave='no', fl_wavtran='no', fl_novl='no', fl_skysub='no',
             reference='', recenter='yes', fl_vardq=vardq)
@@ -75,22 +88,36 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, overscan,
     #   flat field image, therefore it must be re-reduced for every
     #   new exposure requiring a flat.
     #
-    if os.path.isfile('erg'+twilight+'.fits'):
+    if not os.path.isfile('eprg'+twilight+'.fits'):
+        print "TWILIGTH == TRUE ************************************************"
         iraf.delete('*'+twilight+'.fits')
         iraf.delete('./database/ap*'+twilight+'*')
-    iraf.gfreduce(
-        twilight, slits='header', rawpath='rawdir$', fl_inter='no',
-        fl_addmdf='yes', key_mdf='MDF', mdffile='default', weights='no',
-        fl_over=overscan, fl_trim='yes', fl_bias='yes', trace='no',
-        t_order=4, fl_flux='no', fl_gscrrej='no', fl_extract='yes',
-        fl_gsappwave='no', fl_wavtran='no', fl_novl='no', fl_skysub='no',
-        reference='erg'+flat, recenter='no', fl_vardq=vardq)
+        iraf.gfreduce(
+            twilight, slits='header', rawpath='rawdir$', fl_inter='no',
+            fl_addmdf='yes', key_mdf='MDF', mdffile='default', weights='no',
+            fl_over=overscan, fl_trim='yes', fl_bias='yes', trace='no',
+            fl_flux='no', fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
+            fl_wavtran='no', fl_novl='no', fl_skysub='no', 
+            recenter='no', fl_vardq=vardq)
+
+        # Gemfix
+        iraf.gemfix('rg'+twilight, out='prg'+twilight, method='fixpix', 
+             bitmask=1)
+
+        iraf.gfreduce(
+            'prg'+twilight, slits='header', rawpath='./', fl_inter='no',
+            fl_addmdf='no', key_mdf='MDF', mdffile='default', weights='no',
+            fl_over=overscan, fl_trim='no', fl_bias='no', trace='yes',
+            t_order=4, fl_flux='no', fl_gscrrej='no', fl_extract='yes',
+            fl_gsappwave='no', fl_wavtran='no', fl_novl='no', fl_skysub='no',
+            reference='eprg'+flat, recenter='no', fl_vardq=vardq)
+
     #
     #   Response function
     #
-    if not os.path.isfile('erg'+flat+'_response.fits'):
+    if not os.path.isfile('eprg'+flat+'_response.fits'):
         iraf.gfresponse(
-            'erg'+flat, out='erg'+flat+'_response', skyimage='erg'+twilight,
+            'eprg'+flat, out='eprg'+flat+'_response', skyimage='eprg'+twilight,
             order=95, fl_inter='no', func='spline3', sample='*', verbose='yes')
     #
     #   Arc reduction
@@ -102,7 +129,7 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, overscan,
             fl_over=overscan, fl_trim='yes', fl_bias='no', trace='no',
             recenter='no', fl_flux='no', fl_gscrrej='no', fl_extract='yes',
             fl_gsappwave='no', fl_wavtran='no', fl_novl='no', fl_skysub='no',
-            reference='erg'+flat, fl_vardq='no')
+            reference='eprg'+flat, fl_vardq='no')
     # 
     #   Finding wavelength solution
     #   Note: the automatic identification is very good
@@ -115,6 +142,6 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, overscan,
     #
     #   Apply wavelength solution to the lamp 2D spectra
     #
-    if not os.path.isfile('terg'+arc): 
+    if not os.path.isfile('teprg'+arc): 
         iraf.gftransform(
             'erg'+arc, wavtran='erg'+arc, outpref='t', fl_vardq='no')
