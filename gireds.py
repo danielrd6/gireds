@@ -244,7 +244,8 @@ class pipeline():
             lacos=self.lacos_file, observatory=dic['observatory'],
             apply_lacos=self.apply_lacos,
             lacos_xorder=self.cfg.getint('reduction', 'lacos_xorder'),
-            lacos_yorder=self.cfg.getint('reduction', 'lacos_yorder'))
+            lacos_yorder=self.cfg.getint('reduction', 'lacos_yorder'),
+            bpm=dic['bpm'])
 
     def science(self, dic):
 
@@ -255,7 +256,8 @@ class pipeline():
             overscan=self.fl_over, vardq=self.fl_vardq, lacos=self.lacos_file,
             observatory=dic['observatory'], apply_lacos=self.apply_lacos,
             lacos_xorder=self.cfg.getint('reduction', 'lacos_xorder'),
-            lacos_yorder=self.cfg.getint('reduction', 'lacos_yorder'))
+            lacos_yorder=self.cfg.getint('reduction', 'lacos_yorder'),
+            bpm=dic['bpm'])
 
 
 if __name__ == "__main__":
