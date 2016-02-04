@@ -188,7 +188,18 @@ class pipeline():
                         (self.fl_over == 'no'))
                     ))]
 
-            categories = ['flat', 'bias', 'arc', 'twilight', 'standard_star']
+            element['bpm'] = [
+                l[k] for k in idx if (
+                    (headers[k]['obstype'] == 'BPM')&
+                    (headers[k]['observat'] == hdr['observat'])&
+                    (headers[k]['detector'] == hdr['detector'])&
+                    (headers_ext1[k]['ccdsum'] == hdr_ext1['ccdsum'])&
+                    (headers_ext1[k]['detsec'] == hdr_ext1['detsec'])&
+                    (abs(mjds[k] - mjd) <= self.cfg.getfloat('associations',
+                        'bias_ttol')))]
+
+            categories = ['flat', 'bias', 'arc', 'twilight', 'standard_star',
+                          'bpm']
             for c in categories:
                 if len(element[c]) > 1:
                     element[c] = closest_in_time(element[c], j)
