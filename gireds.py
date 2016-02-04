@@ -44,7 +44,6 @@ class pipeline():
         self.reduction_step = config.getint('main', 'reduction_step')
         self.single_step = config.getboolean('main', 'single_step')
         
-        self.std_samewl = config.getboolean('associations', 'std_samewl')
         self.starinfo_file = config.get('associations', 'starinfo_file')
         self.lacos_file = config.get('third_party', 'lacos_file')
         self.apply_lacos = config.getboolean('reduction', 'apply_lacos') 
@@ -135,10 +134,8 @@ class pipeline():
                     (headers[k]['detector'] == hdr['detector'])&
                     (headers[k]['grating'] == hdr['grating'])&
                     (headers[k]['filter1'] == hdr['filter1'])&
-                    (
-                        ((headers[k]['grwlen'] == hdr['grwlen'])&
-                        (self.std_samewl)) or (not self.std_samewl)
-                    )&
+                    (abs(headers[k]['grwlen'] - hdr['grwlen']) <=
+                        self.cfg.getfloat('associations', 'stdstar_wltol'))&
                     (abs(mjds[k] - mjd) <= self.cfg.getfloat('associations',
                         'stdstar_ttol')))]
 
@@ -158,8 +155,9 @@ class pipeline():
                     (headers[k]['obstype'] == 'OBJECT')&
                     (headers[k]['observat'] == hdr['observat'])&
                     (headers[k]['detector'] == hdr['detector'])&
-                    (headers[k]['grwlen'] == hdr['grwlen'])&
                     (headers[k]['grating'] == hdr['grating'])&
+                    (abs(headers[k]['grwlen'] - hdr['grwlen']) <=
+                        self.cfg.getfloat('associations', 'twilight_wltol'))&
                     (abs(mjds[k] - mjd) <= self.cfg.getfloat('associations',
                         'twilight_ttol')))]
 
