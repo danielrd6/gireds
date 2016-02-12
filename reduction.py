@@ -16,7 +16,7 @@ import pyfits as pf
 import os
 
 def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
-        vardq):
+        vardq, mdfdir):
     """
     Reduction pipeline for basic calibration images.
 
@@ -69,7 +69,7 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
             fl_over=overscan, fl_trim='yes', fl_bias='yes', trace='no',
             fl_flux='no', fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
             fl_wavtran='no', fl_novl='no', fl_skysub='no', 
-            recenter='no', fl_vardq=vardq)
+            recenter='no', fl_vardq=vardq, mdfdir=mdfdir)
 
         # Gemfix
         iraf.gemfix('rg'+flat, out='prg'+flat, method='fixpix', 
@@ -98,7 +98,7 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
         fl_over=overscan, fl_trim='yes', fl_bias='yes', trace='no',
         fl_flux='no', fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
         fl_wavtran='no', fl_novl='no', fl_skysub='no', 
-        recenter='no', fl_vardq=vardq)
+        recenter='no', fl_vardq=vardq, mdfdir=mdfdir)
 
     # Gemfix
     iraf.gemfix('rg'+twilight, out='prg'+twilight, method='fixpix', 
@@ -129,7 +129,7 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
             fl_over=overscan, fl_trim='yes', fl_bias='no', trace='no',
             recenter='no', fl_flux='no', fl_gscrrej='no', fl_extract='yes',
             fl_gsappwave='no', fl_wavtran='no', fl_novl='no', fl_skysub='no',
-            reference='eprg'+flat, fl_vardq='no')
+            reference='eprg'+flat, fl_vardq='no', mdfdir=mdfdir)
     # 
     #   Finding wavelength solution
     #   Note: the automatic identification is very good
@@ -145,3 +145,5 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
     if not os.path.isfile('teprg'+arc): 
         iraf.gftransform(
             'erg'+arc, wavtran='erg'+arc, outpref='t', fl_vardq='no')
+
+    return mdfdir

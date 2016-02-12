@@ -80,10 +80,11 @@ def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
 
     iraf.gfreduce.bias = 'rawdir$'+bias
     iraf.gireduce.bpm = 'rawdir$'+bpm
+    mdfdir = 'gmos$data/'
 
-    cal_reduction(
+    mdfdir = cal_reduction(
         rawdir=rawdir, rundir=rundir, flat=flat, arc=arc, twilight=twilight,
-        bias=bias, bpm=bpm, overscan=overscan, vardq=vardq)
+        bias=bias, bpm=bpm, overscan=overscan, vardq=vardq, mdfdir=mdfdir)
     #
     #   Actually reduce star
     #
@@ -91,9 +92,10 @@ def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
         starimg, slits='header', rawpath='rawdir$', fl_inter='no',
         fl_addmdf='yes', key_mdf='MDF', mdffile='default', weights='no',
         fl_over=overscan, fl_trim='yes', fl_bias='yes', trace='no',
-        recenter='no',
+        recenter='no', 
         fl_flux='no', fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
-        fl_wavtran='no', fl_novl='yes', fl_skysub='no', fl_vardq=vardq)
+        fl_wavtran='no', fl_novl='yes', fl_skysub='no', fl_vardq=vardq,
+        mdfdir=mdfdir)
     prefix = 'rg'
 
     # Gemfix
