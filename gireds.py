@@ -206,6 +206,24 @@ class pipeline():
 
             associated.append(element)
 
+        # mdf filename
+        for i in associated:
+            header_flat = [k for j, k in enumerate(headers) \
+                if l[j] == i['flat']]
+            if len(header_flat):
+                header_flat = header_flat[0]
+                mdfPrefix = "g" + header_flat['INSTRUME'][-1].lower()+"ifu_"
+                MaskName =  header_flat['MASKNAME']
+                if MaskName == "IFU-2":
+                   mdffile = mdfPrefix + "slits_mdf.fits"
+                elif MaskName == "IFU-B":
+                   mdffile = mdfPrefix + "slitb_mdf.fits"
+                elif MaskName == "IFU-R":       
+                   mdffile = mdfPrefix + "slitr_mdf.fits"
+                else:
+                   mdffile = 'default'
+                i['mdffile'] = mdffile
+
         sci_ims = [i for i in associated if i['obsclass'] == 'science']
         std_ims = [i for i in associated if i['obsclass'] == 'partnerCal']
 
@@ -241,7 +259,7 @@ class pipeline():
             apply_lacos=self.apply_lacos,
             lacos_xorder=self.cfg.getint('reduction', 'lacos_xorder'),
             lacos_yorder=self.cfg.getint('reduction', 'lacos_yorder'),
-            bpm=dic['bpm'])
+            bpm=dic['bpm'], mdffile=dic['mdffile'])
 
     def science(self, dic):
 
@@ -253,7 +271,7 @@ class pipeline():
             observatory=dic['observatory'], apply_lacos=self.apply_lacos,
             lacos_xorder=self.cfg.getint('reduction', 'lacos_xorder'),
             lacos_yorder=self.cfg.getint('reduction', 'lacos_yorder'),
-            bpm=dic['bpm'])
+            bpm=dic['bpm'], mdffile=dic['mdffile'])
 
 
 if __name__ == "__main__":

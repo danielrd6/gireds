@@ -22,7 +22,7 @@ from reduction import cal_reduction
 
 def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
     arc, twilight, starimg, bias, overscan, vardq, lacos, observatory,
-    apply_lacos, lacos_xorder, lacos_yorder, bpm):
+    apply_lacos, lacos_xorder, lacos_yorder, bpm, mdffile):
     """
     Reduction pipeline for standard star.
 
