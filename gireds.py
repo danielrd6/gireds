@@ -207,7 +207,8 @@ class pipeline():
             associated.append(element)
 
         sci_ims = [i for i in associated if i['obsclass'] == 'science']
-        std_ims = [i for i in associated if i['obsclass'] == 'partnerCal']
+        std_ims = [i for i in associated if i['obsclass'] in
+            ['partnerCal', 'progCal']]
 
         # Get star info from starinfo.dat
         for i in std_ims:
