@@ -206,20 +206,25 @@ class pipeline():
 
             associated.append(element)
 
-        # mdf filename
+        # Define mdf filename
+        # Based in gprepare.cl
+        # Did not account for observation in Nod-and-Shuffle
         for i in associated:
             header_flat = [k for j, k in enumerate(headers) \
                 if l[j] == i['flat']]
             if len(header_flat):
                 header_flat = header_flat[0]
-                mdfPrefix = "g" + header_flat['INSTRUME'][-1].lower()+"ifu_"
-                MaskName =  header_flat['MASKNAME']
+                mdfPrefix = "g" + header_flat['instrume'][-1].lower()+"ifu_"
+                mdfSufix = ".fits"
+                if header_flat['dettype'] == "S10892":
+                    mdfSufix = "_HAM.fits"
+                MaskName =  header_flat['maskname']
                 if MaskName == "IFU-2":
-                   mdffile = mdfPrefix + "slits_mdf.fits"
+                   mdffile = mdfPrefix + "slits_mdf" + mdfSufix
                 elif MaskName == "IFU-B":
-                   mdffile = mdfPrefix + "slitb_mdf.fits"
+                   mdffile = mdfPrefix + "slitb_mdf" + mdfSufix
                 elif MaskName == "IFU-R":       
-                   mdffile = mdfPrefix + "slitr_mdf.fits"
+                   mdffile = mdfPrefix + "slitr_mdf" + mdfSufix
                 else:
                    mdffile = 'default'
                 i['mdffile'] = mdffile
