@@ -129,7 +129,7 @@ class pipeline():
             element['standard_star'] = [
                 l[k] for k in idx if (
                     (headers[k]['obstype'] == 'OBJECT')&
-                    (headers[k]['obsclass'] == 'partnerCal')&
+                    (headers[k]['obsclass'] in ['partnerCal', 'progCal'])&
                     (headers[k]['object'] != 'Twilight')&
                     (headers[k]['observat'] == hdr['observat'])&
                     (headers[k]['detector'] == hdr['detector'])&
