@@ -17,13 +17,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pyfits as pf
 import glob
-import time
 import os
 from reduction import cal_reduction
 
 def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
     arc, twilight, starimg, bias, overscan, vardq, lacos, observatory,
-    apply_lacos):
+    apply_lacos, lacos_xorder, lacos_yorder, bpm):
     """
     Reduction pipeline for standard star.
 
@@ -69,8 +68,8 @@ def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
 
     #os.path.isfile('arquivo')
     
-    #iraf.unlearn('gemini')
-    #iraf.unlearn('gmos')
+    iraf.unlearn('gemini')
+    iraf.unlearn('gmos')
 
     iraf.cd('procdir')
 
@@ -79,12 +78,12 @@ def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
     arc = arc.strip('.fits')
     starimg = starimg.strip('.fits')
 
-    
     iraf.gfreduce.bias = 'rawdir$'+bias
+    iraf.gireduce.bpm = 'rawdir$'+bpm
 
     cal_reduction(
         rawdir=rawdir, rundir=rundir, flat=flat, arc=arc, twilight=twilight,
-        bias=bias, overscan=overscan, vardq=vardq)
+        bias=bias, bpm=bpm, overscan=overscan, vardq=vardq)
     #
     #   Actually reduce star
     #
@@ -95,15 +94,18 @@ def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
         recenter='no',
         fl_flux='no', fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
         fl_wavtran='no', fl_novl='yes', fl_skysub='no', fl_vardq=vardq)
+    prefix = 'rg'
+
+    # Gemfix
+    iraf.gemfix(prefix+starimg, out='p'+prefix+starimg, method='fixpix', 
+         bitmask=1)
+    prefix = 'p'+prefix
     
     if apply_lacos:
         iraf.gemcrspec(
-            'rg'+starimg, out='lrg'+starimg, sigfrac=0.32,
-            niter=4, fl_vardq=vardq)
-        prefix = 'lrg'
-    else:
-        prefix = 'rg'
-
+            prefix+starimg, out='l'+prefix+starimg, sigfrac=0.32,
+            niter=4, fl_vardq=vardq, xorder=lacos_xorder, yorder=lacos_yorder)
+        prefix = 'l'+prefix
          
     iraf.gfreduce(
         prefix+starimg, slits='header', rawpath='./', fl_inter='no',
@@ -113,9 +115,9 @@ def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
         fl_flux='no', fl_gscrrej='no', fl_extract='yes',
         fl_gsappwave='yes',
         fl_wavtran='yes', fl_novl='no', fl_skysub='yes',
-        reference='erg'+flat, weights='no',
+        reference='eprg'+flat, weights='no',
         wavtraname='erg'+arc,
-        response='erg'+flat+'_response.fits',
+        response='eprg'+flat+'_response.fits',
         fl_vardq=vardq)
     prefix = 'ste'+prefix
     #
@@ -141,7 +143,7 @@ def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
     #   Create data cubes
     #
     iraf.gfcube(
-         'c'+prefix+starimg, outimage='dcstelrg'+starimg, ssample=.1,
+         'c'+prefix+starimg, outimage='dc'+prefix+starimg, ssample=.1,
          fl_atmdisp='yes', fl_var=vardq, fl_dq=vardq)
 
     #
@@ -167,10 +169,6 @@ def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
     plt.xlim(sumwl[0]*.99, sumwl[-1]*1.01)
     plt.ylim(min(calflux)*.8, max(calflux)*1.2)
     plt.savefig('calib'+starimg+'.eps')
-    
-    tend = time.time()
-    
-    print('Elapsed time in reduction: {:.2f}'.format(tend - tstart))
 
 def mag2flux(wl, mag):
     """

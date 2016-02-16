@@ -16,12 +16,12 @@ from pyraf import iraf
 import numpy as np
 import pyfits as pf
 import glob
-import time
 import os
 from reduction import cal_reduction
 
 def reduce_science(rawdir, rundir, flat, arc, twilight, sciimg,
-        starimg, bias, overscan, vardq, observatory, lacos, apply_lacos):
+        starimg, bias, overscan, vardq, observatory, lacos, apply_lacos,
+        lacos_xorder, lacos_yorder, bpm):
     """
     Reduction pipeline for standard star.
 
@@ -58,12 +58,10 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, sciimg,
 
     #os.path.isfile('arquivo')
     
-    #iraf.unlearn('gemini')
-    #iraf.unlearn('gmos')
+    iraf.unlearn('gemini')
+    iraf.unlearn('gmos')
     
     iraf.task(lacos_spec=lacos)
-    
-    tstart = time.time()
     
     #set directories
     iraf.set(caldir=rawdir)  # 
@@ -80,10 +78,11 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, sciimg,
     starimg = starimg.strip('.fits')
     sciimg = sciimg.strip('.fits')
     iraf.gfreduce.bias = 'caldir$'+bias
+    iraf.gireduce.bpm = 'rawdir$'+bpm
 
     cal_reduction(
         rawdir=rawdir, rundir=rundir, flat=flat, arc=arc, twilight=twilight,
-        bias=bias, overscan=overscan, vardq=vardq)
+        bias=bias, bpm=bpm, overscan=overscan, vardq=vardq)
     #
     #   Actually reduce science
     #
@@ -91,18 +90,22 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, sciimg,
         sciimg, slits='header', rawpath='rawdir$', fl_inter='no',
         fl_addmdf='yes', key_mdf='MDF', mdffile='default', weights='no',
         fl_over=overscan, fl_trim='yes', fl_bias='yes', trace='no',
-        recenter='no', fl_flux='no', fl_gscrrej='no', fl_extract='no', 
-        fl_gsappwave='no', fl_wavtran='no', fl_novl='yes',
-        fl_skysub='no', fl_vardq=vardq)
+        recenter='no',
+        fl_flux='no', fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
+        fl_wavtran='no', fl_novl='yes', fl_skysub='no', fl_vardq=vardq)
+    prefix = 'rg'
+
+    # Gemfix
+    iraf.gemfix(prefix+sciimg, out='p'+prefix+sciimg, method='fixpix', 
+         bitmask=1)
+    prefix = 'p'+prefix
     
     if apply_lacos:
         iraf.gemcrspec(
-            'rg'+sciimg, out='lrg'+sciimg, sigfrac=0.32, 
-            niter=4, fl_vardq=vardq)
-        prefix = 'lrg'
-    else:
-        prefix = 'rg'
-
+            prefix+sciimg, out='l'+prefix+sciimg, sigfrac=0.32,
+            niter=4, fl_vardq=vardq, xorder=lacos_xorder, yorder=lacos_yorder)
+        prefix = 'l'+prefix
+         
     iraf.gfreduce(
         prefix+sciimg, slits='header', rawpath='./', fl_inter='no',
         fl_addmdf='no', key_mdf='MDF', mdffile='default',
@@ -110,9 +113,9 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, sciimg,
         recenter='no', fl_flux='no', fl_gscrrej='no', fl_extract='yes',
         fl_gsappwave='yes', fl_wavtran='yes', fl_novl='no',
         fl_skysub='yes',
-        reference='erg'+flat, weights='no',
+        reference='eprg'+flat, weights='no',
         wavtraname='erg'+arc,
-        response='erg'+flat+'_response.fits', fl_vardq=vardq)
+        response='eprg'+flat+'_response.fits', fl_vardq=vardq)
     prefix = 'ste'+prefix
     #
     #   Apply flux calibration to galaxy
@@ -128,7 +131,3 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, sciimg,
     iraf.gfcube(
          prefix+sciimg, outimage='d'+prefix+sciimg, ssample=.1, 
          fl_atmdisp='yes', fl_var=vardq, fl_dq=vardq)
-    
-    tend = time.time()
-    
-    print('Elapsed time in reduction: {:.2f}'.format(tend - tstart))
