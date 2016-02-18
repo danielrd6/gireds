@@ -9,7 +9,6 @@ import glob
 from standard_star import reduce_stdstar
 from galaxy import reduce_science
 
-
 def closest_in_time(images, target):
     """
     Takes a list of images, and returns the one taken closest in time
@@ -24,7 +23,6 @@ def closest_in_time(images, target):
 
 
 class pipeline():
-
     """
     GIREDS - Gmos Ifu REDuction Suite
 
@@ -130,7 +128,7 @@ class pipeline():
             element['standard_star'] = [
                 l[k] for k in idx if (
                     (headers[k]['obstype'] == 'OBJECT') &
-                    (headers[k]['obsclass'] == 'partnerCal') &
+                    (headers[k]['obsclass'] in ['partnerCal', 'progCal']) &
                     (headers[k]['object'] != 'Twilight') &
                     (headers[k]['observat'] == hdr['observat']) &
                     (headers[k]['detector'] == hdr['detector']) &
@@ -139,7 +137,7 @@ class pipeline():
                     (abs(headers[k]['grwlen'] - hdr['grwlen']) <=
                         self.cfg.getfloat('associations', 'stdstar_wltol')) &
                     (abs(mjds[k] - mjd) <= self.cfg.getfloat('associations',
-                                                             'stdstar_ttol')))]
+                        'stdstar_ttol')))]
 
             element['flat'] = [
                 l[k] for k in idx if (
@@ -149,7 +147,7 @@ class pipeline():
                     (headers[k]['grwlen'] == hdr['grwlen']) &
                     (headers[k]['detector'] == hdr['detector']) &
                     (abs(mjds[k] - mjd) <= self.cfg.getfloat('associations',
-                                                             'flat_ttol')))]
+                        'flat_ttol')))]
 
             element['twilight'] = [
                 l[k] for k in idx if (
@@ -161,7 +159,7 @@ class pipeline():
                     (abs(headers[k]['grwlen'] - hdr['grwlen']) <=
                         self.cfg.getfloat('associations', 'twilight_wltol')) &
                     (abs(mjds[k] - mjd) <= self.cfg.getfloat('associations',
-                                                             'twilight_ttol')))]
+                        'twilight_ttol')))]
 
             element['arc'] = [
                 l[k] for k in idx if (
@@ -172,7 +170,7 @@ class pipeline():
                     (headers[k]['grating'] == hdr['grating']) &
                     (headers[k]['grwlen'] == hdr['grwlen']) &
                     (abs(mjds[k] - mjd) <= self.cfg.getfloat('associations',
-                                                             'arc_ttol')))]
+                        'arc_ttol')))]
 
             element['bias'] = [
                 l[k] for k in idx if (
@@ -180,7 +178,7 @@ class pipeline():
                     (headers[k]['observat'] == hdr['observat']) &
                     (headers[k]['detector'] == hdr['detector']) &
                     (abs(mjds[k] - mjd) <= self.cfg.getfloat('associations',
-                                                             'bias_ttol')) &
+                        'bias_ttol'))&
                     (
                         (('overscan' in headers_ext1[k]) &
                          (self.fl_over == 'yes')) or
@@ -209,7 +207,8 @@ class pipeline():
             associated.append(element)
 
         sci_ims = [i for i in associated if i['obsclass'] == 'science']
-        std_ims = [i for i in associated if i['obsclass'] == 'partnerCal']
+        std_ims = [i for i in associated if i['obsclass'] in
+            ['partnerCal', 'progCal']]
 
         # Get star info from starinfo.dat
         for i in std_ims:
