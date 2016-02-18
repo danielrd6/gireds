@@ -9,6 +9,7 @@ import glob
 from standard_star import reduce_stdstar
 from galaxy import reduce_science
 
+
 def closest_in_time(images, target):
     """
     Takes a list of images, and returns the one taken closest in time
@@ -23,9 +24,10 @@ def closest_in_time(images, target):
 
 
 class pipeline():
+
     """
     GIREDS - Gmos Ifu REDuction Suite
-    
+
     This class is intended to concentrate and streamline all the of the
     reduction steps for the reduction of Integral Fiedl Unit (IFU) data
     from GMOS.
@@ -43,10 +45,10 @@ class pipeline():
 
         self.reduction_step = config.getint('main', 'reduction_step')
         self.single_step = config.getboolean('main', 'single_step')
-        
+
         self.starinfo_file = config.get('associations', 'starinfo_file')
         self.lacos_file = config.get('third_party', 'lacos_file')
-        self.apply_lacos = config.getboolean('reduction', 'apply_lacos') 
+        self.apply_lacos = config.getboolean('reduction', 'apply_lacos')
         # Define directory structure
         self.raw_dir = config.get('main', 'raw_dir')
         self.products_dir = config.get('main', 'products_dir')
@@ -84,15 +86,15 @@ class pipeline():
         starinfo_file = self.starinfo_file
         nstar = sum(1 for line in open(starinfo_file))
         infoname = ['obj', 'std', 'caldir', 'altname']
-        infofmt = ['|S25','|S25', '|S25', '|S25']
-        starinfo = np.zeros(nstar,  dtype={'names':infoname, 'formats':
-            infofmt})
+        infofmt = ['|S25', '|S25', '|S25', '|S25']
+        starinfo = np.zeros(nstar,  dtype={'names': infoname, 'formats':
+                                           infofmt})
         with open(starinfo_file, 'r') as arq:
             for i in range(nstar):
                 linelist = arq.readline().split()
                 for j in range(len(infoname)):
                     starinfo[i][j] = linelist[j]
-       
+
         os.chdir(self.raw_dir)
 
         l = glob.glob('*.fits')
@@ -105,8 +107,8 @@ class pipeline():
 
         images = np.array([
             l[i] for i in idx if (
-                (headers[i]['obstype'] == 'OBJECT')&
-                (headers[i]['object'] != 'Twilight')&
+                (headers[i]['obstype'] == 'OBJECT') &
+                (headers[i]['object'] != 'Twilight') &
                 (headers[i]['obsclass'] != 'acq'))])
 
         associated = []
@@ -119,7 +121,7 @@ class pipeline():
             mjd = hdr_ext1['mjd-obs']
 
             element = {
-                'image':j, 'observatory': hdr['observat'],
+                'image': j, 'observatory': hdr['observat'],
                 'detector': hdr['detector'], 'grating_wl': hdr['grwlen'],
                 'mjd': mjd, 'grating': hdr['grating'],
                 'filter1': hdr['filter1'], 'obsclass': hdr['obsclass'],
@@ -127,71 +129,71 @@ class pipeline():
 
             element['standard_star'] = [
                 l[k] for k in idx if (
-                    (headers[k]['obstype'] == 'OBJECT')&
-                    (headers[k]['obsclass'] == 'partnerCal')&
-                    (headers[k]['object'] != 'Twilight')&
-                    (headers[k]['observat'] == hdr['observat'])&
-                    (headers[k]['detector'] == hdr['detector'])&
-                    (headers[k]['grating'] == hdr['grating'])&
-                    (headers[k]['filter1'] == hdr['filter1'])&
+                    (headers[k]['obstype'] == 'OBJECT') &
+                    (headers[k]['obsclass'] == 'partnerCal') &
+                    (headers[k]['object'] != 'Twilight') &
+                    (headers[k]['observat'] == hdr['observat']) &
+                    (headers[k]['detector'] == hdr['detector']) &
+                    (headers[k]['grating'] == hdr['grating']) &
+                    (headers[k]['filter1'] == hdr['filter1']) &
                     (abs(headers[k]['grwlen'] - hdr['grwlen']) <=
-                        self.cfg.getfloat('associations', 'stdstar_wltol'))&
+                        self.cfg.getfloat('associations', 'stdstar_wltol')) &
                     (abs(mjds[k] - mjd) <= self.cfg.getfloat('associations',
-                        'stdstar_ttol')))]
+                                                             'stdstar_ttol')))]
 
             element['flat'] = [
                 l[k] for k in idx if (
-                    (headers[k]['obstype'] == 'FLAT')&
-                    (headers[k]['observat'] == hdr['observat'])&
-                    (headers[k]['grating'] == hdr['grating'])&
-                    (headers[k]['grwlen'] == hdr['grwlen'])&
-                    (headers[k]['detector'] == hdr['detector'])&
+                    (headers[k]['obstype'] == 'FLAT') &
+                    (headers[k]['observat'] == hdr['observat']) &
+                    (headers[k]['grating'] == hdr['grating']) &
+                    (headers[k]['grwlen'] == hdr['grwlen']) &
+                    (headers[k]['detector'] == hdr['detector']) &
                     (abs(mjds[k] - mjd) <= self.cfg.getfloat('associations',
-                        'flat_ttol')))]
+                                                             'flat_ttol')))]
 
             element['twilight'] = [
                 l[k] for k in idx if (
-                    (headers[k]['object'] == 'Twilight')&
-                    (headers[k]['obstype'] == 'OBJECT')&
-                    (headers[k]['observat'] == hdr['observat'])&
-                    (headers[k]['detector'] == hdr['detector'])&
-                    (headers[k]['grating'] == hdr['grating'])&
+                    (headers[k]['object'] == 'Twilight') &
+                    (headers[k]['obstype'] == 'OBJECT') &
+                    (headers[k]['observat'] == hdr['observat']) &
+                    (headers[k]['detector'] == hdr['detector']) &
+                    (headers[k]['grating'] == hdr['grating']) &
                     (abs(headers[k]['grwlen'] - hdr['grwlen']) <=
-                        self.cfg.getfloat('associations', 'twilight_wltol'))&
+                        self.cfg.getfloat('associations', 'twilight_wltol')) &
                     (abs(mjds[k] - mjd) <= self.cfg.getfloat('associations',
-                        'twilight_ttol')))]
+                                                             'twilight_ttol')))]
 
             element['arc'] = [
-                 l[k] for k in idx if (
-                    (headers[k]['object'] == 'CuAr')&
-                    (headers[k]['obstype'] == 'ARC')&
-                    (headers[k]['observat'] == hdr['observat'])&
-                    (headers[k]['detector'] == hdr['detector'])&
-                    (headers[k]['grating'] == hdr['grating'])&
-                    (headers[k]['grwlen'] == hdr['grwlen'])&
+                l[k] for k in idx if (
+                    (headers[k]['object'] == 'CuAr') &
+                    (headers[k]['obstype'] == 'ARC') &
+                    (headers[k]['observat'] == hdr['observat']) &
+                    (headers[k]['detector'] == hdr['detector']) &
+                    (headers[k]['grating'] == hdr['grating']) &
+                    (headers[k]['grwlen'] == hdr['grwlen']) &
                     (abs(mjds[k] - mjd) <= self.cfg.getfloat('associations',
-                        'arc_ttol')))]
+                                                             'arc_ttol')))]
 
             element['bias'] = [
                 l[k] for k in idx if (
-                    (headers[k]['obstype'] == 'BIAS')&
-                    (headers[k]['observat'] == hdr['observat'])&
-                    (headers[k]['detector'] == hdr['detector'])&
+                    (headers[k]['obstype'] == 'BIAS') &
+                    (headers[k]['observat'] == hdr['observat']) &
+                    (headers[k]['detector'] == hdr['detector']) &
                     (abs(mjds[k] - mjd) <= self.cfg.getfloat('associations',
-                        'bias_ttol'))&
+                                                             'bias_ttol')) &
                     (
-                        (('overscan' in headers_ext1[k])&
-                        (self.fl_over == 'yes')) or
-                        (('overscan' not in headers_ext1[k])&
-                        (self.fl_over == 'no'))
+                        (('overscan' in headers_ext1[k]) &
+                         (self.fl_over == 'yes')) or
+                        (('overscan' not in headers_ext1[k]) &
+                         (self.fl_over == 'no'))
                     ))]
 
             element['bpm'] = [
                 l[k] for k in idx if (
-                    (headers[k]['obstype'] == 'BPM')&
-                    (headers[k]['observat'] == hdr['observat'])&
-                    (headers[k]['detector'] == hdr['detector'])&
-                    (headers_ext1[k]['ccdsum'] == hdr_ext1['ccdsum'])&
+                    (headers[k]['obstype'] == 'BPM') &
+                    (headers[k]['observat'] == hdr['observat']) &
+                    (headers[k]['detector'] == hdr['detector']) &
+                    (headers_ext1[k]['ccdsum'] == hdr_ext1['ccdsum']) &
                     (headers_ext1[k]['detsec'] == hdr_ext1['detsec']))]
 
             categories = ['flat', 'bias', 'arc', 'twilight', 'standard_star',
@@ -215,14 +217,14 @@ class pipeline():
             # element in question refers to a standard star.
             del i['standard_star']
 
-            starinfo_idx = [j for j,m in enumerate(starinfo['obj']) \
-                              if m==i['object']][0]
+            starinfo_idx = [j for j, m in enumerate(starinfo['obj'])
+                            if m == i['object']][0]
             i['stdstar'] = starinfo[starinfo_idx]['std']
             i['caldir'] = starinfo[starinfo_idx]['caldir']
 
         self.sci = sci_ims
         self.std = std_ims
-        
+
         # Writes the file association dictionary to an ASCII file
         # in the run directory.
         if not self.dry_run:
@@ -260,24 +262,24 @@ if __name__ == "__main__":
     import sys
 
     pip = pipeline(sys.argv[1])
-    print('##################################################\n'\
-          '# GIREDS (Gmos Ifu REDuction Suite)              #\n'\
-          '##################################################\n'\
+    print('##################################################\n'
+          '# GIREDS (Gmos Ifu REDuction Suite)              #\n'
+          '##################################################\n'
           'Starting reduction at: {:s}\n'.format(time.asctime()))
 
     if (pip.reduction_step == 0) or\
             ((pip.single_step == False) and (pip.reduction_step >= 0)):
 
-        print('Starting reduction step 0\n'\
+        print('Starting reduction step 0\n'
               'on directory {:s}\n'.format(pip.raw_dir))
 
         pip.associate_files()
 
     if (pip.reduction_step == 1) or\
             ((pip.single_step == False) and (pip.reduction_step >= 1)):
-        
+
         os.chdir(pip.run_dir)
-        print('Starting reduction step 1\n'\
+        print('Starting reduction step 1\n'
               'on directory {:s}\n'.format(os.getcwd()))
 
         r = file('file_associations_sci.dat', 'r').read()
@@ -293,8 +295,8 @@ if __name__ == "__main__":
                 True if star[i] != '' else False for i in cal_categories])
 
             if not cal.all():
-                print(('ERROR! Image {:s} does not have all the necessary\n'\
-                      'calibration files: '+len(cal[~cal])*'{:s} ')\
+                print(('ERROR! Image {:s} does not have all the necessary\n'
+                      'calibration files: ' + len(cal[~cal]) * '{:s} ')
                       .format(star['image'], *cal_categories[~cal]))
                 print('Skipping image {:s}.'.format(star['image']))
                 continue
@@ -305,7 +307,7 @@ if __name__ == "__main__":
             ((pip.single_step == False) and (pip.reduction_step >= 2)):
 
         os.chdir(pip.run_dir)
-        print('Starting reduction step 2\n'\
+        print('Starting reduction step 2\n'
               'on directory {:s}\n'.format(os.getcwd()))
 
         r = file('file_associations_sci.dat', 'r').read()
@@ -322,8 +324,8 @@ if __name__ == "__main__":
                 True if sci[i] != '' else False for i in cal_categories])
 
             if not cal.all():
-                print(('ERROR! Image {:s} does not have all the necessary\n'\
-                      'calibration files: '+len(cal[~cal])*'{:s} ')\
+                print(('ERROR! Image {:s} does not have all the necessary\n'
+                      'calibration files: ' + len(cal[~cal]) * '{:s} ')
                       .format(sci['image'], *cal_categories[~cal]))
                 print('Skipping image {:s}.'.format(sci['image']))
                 continue

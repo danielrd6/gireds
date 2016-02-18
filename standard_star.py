@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 
-#########################################################################
-#                                                                       #
-#   ATTENTION!!!                                                        #
-#       DO NOT follow on a reduction process unless you are sure about  #
-#       the fiber masks in the MDF file. Disregarding this warning will #
-#       most certainly lead to major headaches at the final stages of   #
-#       the reduction.                                                  #
-#                                                                       #
-#########################################################################
+#
+#
+# ATTENTION!!!                                                        #
+# DO NOT follow on a reduction process unless you are sure about  #
+# the fiber masks in the MDF file. Disregarding this warning will #
+# most certainly lead to major headaches at the final stages of   #
+# the reduction.                                                  #
+#
+#
 
 # Table of images
 
@@ -20,9 +20,10 @@ import glob
 import os
 from reduction import cal_reduction
 
+
 def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
-    arc, twilight, starimg, bias, overscan, vardq, lacos, observatory,
-    apply_lacos, lacos_xorder, lacos_yorder, bpm):
+                   arc, twilight, starimg, bias, overscan, vardq, lacos, observatory,
+                   apply_lacos, lacos_xorder, lacos_yorder, bpm):
     """
     Reduction pipeline for standard star.
 
@@ -48,7 +49,7 @@ def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
         Name of the file containing the image to be reduced.
     bias: list
         Bias images.
-    
+
     """
 
     iraf.set(stdimage='imtgmos')
@@ -57,17 +58,17 @@ def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
     iraf.gemini()
     iraf.gmos()
     iraf.gemtools()
-    
-    iraf.gmos.logfile='logfile.log'
-    iraf.gemtools.gloginit.logfile='logfile.log'
 
-    #set directories
-    iraf.set(caldir=rawdir)  # 
+    iraf.gmos.logfile = 'logfile.log'
+    iraf.gemtools.gloginit.logfile = 'logfile.log'
+
+    # set directories
+    iraf.set(caldir=rawdir)  #
     iraf.set(rawdir=rawdir)  # raw files
-    iraf.set(procdir=rundir)  # processed files   
+    iraf.set(procdir=rundir)  # processed files
 
-    #os.path.isfile('arquivo')
-    
+    # os.path.isfile('arquivo')
+
     iraf.unlearn('gemini')
     iraf.unlearn('gmos')
 
@@ -78,8 +79,8 @@ def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
     arc = arc.strip('.fits')
     starimg = starimg.strip('.fits')
 
-    iraf.gfreduce.bias = 'rawdir$'+bias
-    iraf.gireduce.bpm = 'rawdir$'+bpm
+    iraf.gfreduce.bias = 'rawdir$' + bias
+    iraf.gireduce.bpm = 'rawdir$' + bpm
 
     cal_reduction(
         rawdir=rawdir, rundir=rundir, flat=flat, arc=arc, twilight=twilight,
@@ -97,78 +98,80 @@ def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
     prefix = 'rg'
 
     # Gemfix
-    iraf.gemfix(prefix+starimg, out='p'+prefix+starimg, method='fixpix', 
-         bitmask=1)
-    prefix = 'p'+prefix
-    
+    iraf.gemfix(prefix + starimg, out='p' + prefix + starimg, method='fixpix',
+                bitmask=1)
+    prefix = 'p' + prefix
+
     if apply_lacos:
         iraf.gemcrspec(
-            prefix+starimg, out='l'+prefix+starimg, sigfrac=0.32,
+            prefix + starimg, out='l' + prefix + starimg, sigfrac=0.32,
             niter=4, fl_vardq=vardq, xorder=lacos_xorder, yorder=lacos_yorder)
-        prefix = 'l'+prefix
-         
+        prefix = 'l' + prefix
+
     iraf.gfreduce(
-        prefix+starimg, slits='header', rawpath='./', fl_inter='no',
+        prefix + starimg, slits='header', rawpath='./', fl_inter='no',
         fl_addmdf='no', key_mdf='MDF', mdffile='default',
         fl_over='no', fl_trim='no', fl_bias='no', trace='no',
         recenter='no',
         fl_flux='no', fl_gscrrej='no', fl_extract='yes',
         fl_gsappwave='yes',
         fl_wavtran='yes', fl_novl='no', fl_skysub='yes',
-        reference='eprg'+flat, weights='no',
-        wavtraname='erg'+arc,
-        response='eprg'+flat+'_response.fits',
+        reference='eprg' + flat, weights='no',
+        wavtraname='erg' + arc,
+        response='eprg' + flat + '_response.fits',
         fl_vardq=vardq)
-    prefix = 'ste'+prefix
+    prefix = 'ste' + prefix
     #
     #   Apsumming the stellar spectra
     #
     iraf.gfapsum(
-        prefix+starimg, fl_inter='no', lthreshold=400.,
+        prefix + starimg, fl_inter='no', lthreshold=400.,
         reject='avsigclip')
     #
     #   Building sensibility function
-    # 
+    #
     iraf.gsstandard(
-        'a'+prefix+starimg, starname=stdstar, observatory=observatory,
-        sfile='std'+starimg, sfunction='sens'+starimg, caldir=caldir)
+        'a' + prefix + starimg, starname=stdstar, observatory=observatory,
+        sfile='std' + starimg, sfunction='sens' + starimg, caldir=caldir)
     #
     #   Apply flux calibration to star
     #
     iraf.gscalibrate(
-         prefix+starimg, sfuncti='sens'+starimg, 
-         extinct='onedstds$ctioextinct.dat', 
+        prefix + starimg, sfuncti='sens' + starimg,
+         extinct='onedstds$ctioextinct.dat',
          observatory=observatory, fluxsca=1, fl_vardq=vardq)
     #
     #   Create data cubes
     #
     iraf.gfcube(
-         'c'+prefix+starimg, outimage='dc'+prefix+starimg, ssample=.1,
+        'c' + prefix + starimg, outimage='dc' + prefix + starimg, ssample=.1,
          fl_atmdisp='yes', fl_var=vardq, fl_dq=vardq)
 
     #
     # Test calibration
     #
     iraf.cd(caldir)
-    caldata = np.loadtxt(stdstar+'.dat', unpack=True)
+    caldata = np.loadtxt(stdstar + '.dat', unpack=True)
     iraf.cd('procdir')
     calflux = mag2flux(caldata[0], caldata[1])
 
     iraf.gscalibrate(
-        'a'+prefix+starimg, sfuncti='sens'+starimg,
+        'a' + prefix + starimg, sfuncti='sens' + starimg,
         extinct='onedstds$ctioextinct.dat',
         observatory=observatory, fluxsca=1)
 
-    sumflux = pf.getdata('ca'+prefix+starimg+'.fits', ext=2)
-    sumhead = pf.getheader('ca'+prefix+starimg+'.fits', ext=2)
-    sumwl = sumhead['crval1'] + np.arange(sumhead['naxis1'])*sumhead['cdelt1']
+    sumflux = pf.getdata('ca' + prefix + starimg + '.fits', ext=2)
+    sumhead = pf.getheader('ca' + prefix + starimg + '.fits', ext=2)
+    sumwl = sumhead['crval1'] + np.arange(
+        sumhead['naxis1']) * sumhead['cdelt1']
 
     plt.close('all')
     plt.plot(sumwl, sumflux, 'b', lw=.5)
     plt.plot(caldata[0], calflux, 'r', lw=1.5)
-    plt.xlim(sumwl[0]*.99, sumwl[-1]*1.01)
-    plt.ylim(min(calflux)*.8, max(calflux)*1.2)
-    plt.savefig('calib'+starimg+'.eps')
+    plt.xlim(sumwl[0] * .99, sumwl[-1] * 1.01)
+    plt.ylim(min(calflux) * .8, max(calflux) * 1.2)
+    plt.savefig('calib' + starimg + '.eps')
+
 
 def mag2flux(wl, mag):
     """
@@ -185,11 +188,11 @@ def mag2flux(wl, mag):
         Wavelength in angstrons
     mag: array
         Magnitude from calibration star
-    
+
     Returns
     -------
     fna : array
         Flux per unit wavelength [ergs/cm/cm/s/A]
     """
-    fnu = 3.68E-20*10**(-0.4*mag)
-    return fnu*2.99792458E18/wl/wl
+    fnu = 3.68E-20 * 10 ** (-0.4 * mag)
+    return fnu * 2.99792458E18 / wl / wl
