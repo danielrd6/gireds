@@ -16,14 +16,13 @@ from pyraf import iraf
 import matplotlib.pyplot as plt
 import numpy as np
 import pyfits as pf
-import glob
-import os
 from reduction import cal_reduction
 
 
-def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
-                   arc, twilight, starimg, bias, overscan, vardq, lacos, observatory,
-                   apply_lacos, lacos_xorder, lacos_yorder, bpm):
+def reduce_stdstar(
+        rawdir, rundir, caldir, starobj, stdstar, flat, arc, twilight,
+        starimg, bias, overscan, vardq, lacos, observatory, apply_lacos,
+        lacos_xorder, lacos_yorder, bpm):
     """
     Reduction pipeline for standard star.
 
@@ -138,14 +137,14 @@ def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
     #
     iraf.gscalibrate(
         prefix + starimg, sfuncti='sens' + starimg,
-         extinct='onedstds$ctioextinct.dat',
-         observatory=observatory, fluxsca=1, fl_vardq=vardq)
+        extinct='onedstds$ctioextinct.dat', observatory=observatory,
+        fluxsca=1, fl_vardq=vardq)
     #
     #   Create data cubes
     #
     iraf.gfcube(
         'c' + prefix + starimg, outimage='dc' + prefix + starimg, ssample=.1,
-         fl_atmdisp='yes', fl_var=vardq, fl_dq=vardq)
+        fl_atmdisp='yes', fl_var=vardq, fl_dq=vardq)
 
     #
     # Test calibration

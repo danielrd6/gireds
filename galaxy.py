@@ -13,16 +13,15 @@
 # Table of images
 
 from pyraf import iraf
-import numpy as np
-import pyfits as pf
-import glob
-import os
+# import numpy as np
+# import pyfits as pf
 from reduction import cal_reduction
 
 
-def reduce_science(rawdir, rundir, flat, arc, twilight, sciimg,
-                   starimg, bias, overscan, vardq, observatory, lacos, apply_lacos,
-                   lacos_xorder, lacos_yorder, bpm):
+def reduce_science(
+        rawdir, rundir, flat, arc, twilight, sciimg, starimg, bias, overscan,
+        vardq, observatory, lacos, apply_lacos, lacos_xorder, lacos_yorder,
+        bpm):
     """
     Reduction pipeline for standard star.
 
@@ -123,12 +122,12 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, sciimg,
     #
     iraf.gscalibrate(
         prefix + sciimg, sfuncti='sens' + starimg,
-         extinct='onedstds$ctioextinct.dat',
-         observatory=observatory, fluxsca=1, fl_vardq=vardq)
+        extinct='onedstds$ctioextinct.dat',
+        observatory=observatory, fluxsca=1, fl_vardq=vardq)
     prefix = 'c' + prefix
     #
     #   Create data cubes
     #
     iraf.gfcube(
         prefix + sciimg, outimage='d' + prefix + sciimg, ssample=.1,
-         fl_atmdisp='yes', fl_var=vardq, fl_dq=vardq)
+        fl_atmdisp='yes', fl_var=vardq, fl_dq=vardq)

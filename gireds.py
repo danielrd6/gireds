@@ -75,7 +75,7 @@ class pipeline():
                 else:
                     raise err
 
-    #@profile
+    # @profile
     def associate_files(self):
         """
         Investigates raw_dir for images to be reduced, and associates
@@ -160,8 +160,8 @@ class pipeline():
                     (headers[k]['grating'] == hdr['grating']) &
                     (abs(headers[k]['grwlen'] - hdr['grwlen']) <=
                         self.cfg.getfloat('associations', 'twilight_wltol')) &
-                    (abs(mjds[k] - mjd) <= self.cfg.getfloat('associations',
-                                                             'twilight_ttol')))]
+                    (abs(mjds[k] - mjd) <= self.cfg.getfloat(
+                        'associations', 'twilight_ttol')))]
 
             element['arc'] = [
                 l[k] for k in idx if (
@@ -171,8 +171,8 @@ class pipeline():
                     (headers[k]['detector'] == hdr['detector']) &
                     (headers[k]['grating'] == hdr['grating']) &
                     (headers[k]['grwlen'] == hdr['grwlen']) &
-                    (abs(mjds[k] - mjd) <= self.cfg.getfloat('associations',
-                                                             'arc_ttol')))]
+                    (abs(mjds[k] - mjd) <= self.cfg.getfloat(
+                        'associations', 'arc_ttol')))]
 
             element['bias'] = [
                 l[k] for k in idx if (
@@ -268,7 +268,7 @@ if __name__ == "__main__":
           'Starting reduction at: {:s}\n'.format(time.asctime()))
 
     if (pip.reduction_step == 0) or\
-            ((pip.single_step == False) and (pip.reduction_step >= 0)):
+            ((pip.single_step is False) and (pip.reduction_step >= 0)):
 
         print('Starting reduction step 0\n'
               'on directory {:s}\n'.format(pip.raw_dir))
@@ -276,7 +276,7 @@ if __name__ == "__main__":
         pip.associate_files()
 
     if (pip.reduction_step == 1) or\
-            ((pip.single_step == False) and (pip.reduction_step >= 1)):
+            ((pip.single_step is False) and (pip.reduction_step >= 1)):
 
         os.chdir(pip.run_dir)
         print('Starting reduction step 1\n'
@@ -304,7 +304,7 @@ if __name__ == "__main__":
                 pip.stdstar(star)
 
     if (pip.reduction_step == 2) or\
-            ((pip.single_step == False) and (pip.reduction_step >= 2)):
+            ((pip.single_step is False) and (pip.reduction_step >= 2)):
 
         os.chdir(pip.run_dir)
         print('Starting reduction step 2\n'
