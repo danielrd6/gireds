@@ -122,10 +122,12 @@ class pipeline():
 
             element = {
                 'image': j, 'observatory': hdr['observat'],
+                'instrument': hdr['instrume'],
                 'detector': hdr['detector'], 'grating_wl': hdr['grwlen'],
                 'mjd': mjd, 'grating': hdr['grating'],
                 'filter1': hdr['filter1'], 'obsclass': hdr['obsclass'],
-                'object': hdr['object']}
+                'object': hdr['object']
+                }
 
             element['standard_star'] = [
                 l[k] for k in idx if (
@@ -240,7 +242,7 @@ class pipeline():
             arc=dic['arc'], twilight=dic['twilight'], starimg=dic['image'],
             bias=dic['bias'], overscan=self.fl_over, vardq=self.fl_vardq,
             lacos=self.lacos_file, observatory=dic['observatory'],
-            apply_lacos=self.apply_lacos,
+            apply_lacos=self.apply_lacos, instrument=dic['instrument'],
             lacos_xorder=self.cfg.getint('reduction', 'lacos_xorder'),
             lacos_yorder=self.cfg.getint('reduction', 'lacos_yorder'),
             bpm=dic['bpm'])
