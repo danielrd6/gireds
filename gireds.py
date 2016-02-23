@@ -9,6 +9,7 @@ import glob
 from standard_star import reduce_stdstar
 from galaxy import reduce_science
 
+
 def closest_in_time(images, target):
     """
     Takes a list of images, and returns the one taken closest in time
@@ -23,6 +24,7 @@ def closest_in_time(images, target):
 
 
 class pipeline():
+
     """
     GIREDS - Gmos Ifu REDuction Suite
 
@@ -73,7 +75,7 @@ class pipeline():
                 else:
                     raise err
 
-    #@profile
+    # @profile
     def associate_files(self):
         """
         Investigates raw_dir for images to be reduced, and associates
@@ -120,10 +122,12 @@ class pipeline():
 
             element = {
                 'image': j, 'observatory': hdr['observat'],
+                'instrument': hdr['instrume'],
                 'detector': hdr['detector'], 'grating_wl': hdr['grwlen'],
                 'mjd': mjd, 'grating': hdr['grating'],
                 'filter1': hdr['filter1'], 'obsclass': hdr['obsclass'],
-                'object': hdr['object']}
+                'object': hdr['object']
+                }
 
             element['standard_star'] = [
                 l[k] for k in idx if (
@@ -137,7 +141,7 @@ class pipeline():
                     (abs(headers[k]['grwlen'] - hdr['grwlen']) <=
                         self.cfg.getfloat('associations', 'stdstar_wltol')) &
                     (abs(mjds[k] - mjd) <= self.cfg.getfloat('associations',
-                        'stdstar_ttol')))]
+                                                             'stdstar_ttol')))]
 
             element['flat'] = [
                 l[k] for k in idx if (
@@ -147,7 +151,7 @@ class pipeline():
                     (headers[k]['grwlen'] == hdr['grwlen']) &
                     (headers[k]['detector'] == hdr['detector']) &
                     (abs(mjds[k] - mjd) <= self.cfg.getfloat('associations',
-                        'flat_ttol')))]
+                                                             'flat_ttol')))]
 
             element['twilight'] = [
                 l[k] for k in idx if (
@@ -158,8 +162,8 @@ class pipeline():
                     (headers[k]['grating'] == hdr['grating']) &
                     (abs(headers[k]['grwlen'] - hdr['grwlen']) <=
                         self.cfg.getfloat('associations', 'twilight_wltol')) &
-                    (abs(mjds[k] - mjd) <= self.cfg.getfloat('associations',
-                        'twilight_ttol')))]
+                    (abs(mjds[k] - mjd) <= self.cfg.getfloat(
+                        'associations', 'twilight_ttol')))]
 
             element['arc'] = [
                 l[k] for k in idx if (
@@ -169,8 +173,8 @@ class pipeline():
                     (headers[k]['detector'] == hdr['detector']) &
                     (headers[k]['grating'] == hdr['grating']) &
                     (headers[k]['grwlen'] == hdr['grwlen']) &
-                    (abs(mjds[k] - mjd) <= self.cfg.getfloat('associations',
-                        'arc_ttol')))]
+                    (abs(mjds[k] - mjd) <= self.cfg.getfloat(
+                        'associations', 'arc_ttol')))]
 
             element['bias'] = [
                 l[k] for k in idx if (
@@ -178,7 +182,7 @@ class pipeline():
                     (headers[k]['observat'] == hdr['observat']) &
                     (headers[k]['detector'] == hdr['detector']) &
                     (abs(mjds[k] - mjd) <= self.cfg.getfloat('associations',
-                        'bias_ttol'))&
+                                                             'bias_ttol')) &
                     (
                         (('overscan' in headers_ext1[k]) &
                          (self.fl_over == 'yes')) or
@@ -267,7 +271,7 @@ if __name__ == "__main__":
           'Starting reduction at: {:s}\n'.format(time.asctime()))
 
     if (pip.reduction_step == 0) or\
-            ((pip.single_step == False) and (pip.reduction_step >= 0)):
+            ((pip.single_step is False) and (pip.reduction_step >= 0)):
 
         print('Starting reduction step 0\n'
               'on directory {:s}\n'.format(pip.raw_dir))
@@ -275,7 +279,7 @@ if __name__ == "__main__":
         pip.associate_files()
 
     if (pip.reduction_step == 1) or\
-            ((pip.single_step == False) and (pip.reduction_step >= 1)):
+            ((pip.single_step is False) and (pip.reduction_step >= 1)):
 
         os.chdir(pip.run_dir)
         print('Starting reduction step 1\n'
@@ -303,7 +307,7 @@ if __name__ == "__main__":
                 pip.stdstar(star)
 
     if (pip.reduction_step == 2) or\
-            ((pip.single_step == False) and (pip.reduction_step >= 2)):
+            ((pip.single_step is False) and (pip.reduction_step >= 2)):
 
         os.chdir(pip.run_dir)
         print('Starting reduction step 2\n'

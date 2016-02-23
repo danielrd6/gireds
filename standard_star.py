@@ -16,14 +16,52 @@ from pyraf import iraf
 import matplotlib.pyplot as plt
 import numpy as np
 import pyfits as pf
-import glob
-import os
 from reduction import cal_reduction
 
 
-def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
-                   arc, twilight, starimg, bias, overscan, vardq, lacos, observatory,
-                   apply_lacos, lacos_xorder, lacos_yorder, bpm):
+def circular_aperture(image, radius=1):
+    """
+    Returns a list of aperture numbers to be used by apsum, that
+    define a circular pupil of a given radius, centred on the object
+    field of GMOS.
+
+    Parameters
+    ----------
+    image : string
+        Name of the file containing the standard star spectra after
+        sky subtraction.
+    radius : number
+        Radius of the circular pupil given in arcseconds.
+    """
+
+    hdu = pf.open(image)
+
+    instrument = hdu[0].header['instrume']
+
+    for i in hdu:
+        if type(i) is pf.hdu.table.BinTableHDU:
+            mdf = i.data
+            break
+
+    x, y = mdf['XINST'], mdf['YINST']
+
+    x0 = {'GMOS-N': 3.4, 'GMOS-S': 61.7}
+    y0 = 2.45
+
+    r = np.sqrt((x - x0[instrument]) ** 2 + (y - y0) ** 2)
+
+    cond = (mdf['BEAM'] != -1) & (r < 1)
+    apids = mdf['APID'][cond]
+
+    apertures = (len(apids)*' {:d},').format(*apids)
+
+    return apertures
+
+
+def reduce_stdstar(
+        rawdir, rundir, caldir, starobj, stdstar, flat, arc, twilight,
+        starimg, bias, overscan, vardq, lacos, observatory, apply_lacos,
+        lacos_xorder, lacos_yorder, bpm, instrument):
     """
     Reduction pipeline for standard star.
 
@@ -110,23 +148,28 @@ def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
 
     iraf.gfreduce(
         prefix + starimg, slits='header', rawpath='./', fl_inter='no',
-        fl_addmdf='no', key_mdf='MDF', mdffile='default',
-        fl_over='no', fl_trim='no', fl_bias='no', trace='no',
-        recenter='no',
-        fl_flux='no', fl_gscrrej='no', fl_extract='yes',
-        fl_gsappwave='yes',
+        fl_addmdf='no', key_mdf='MDF', mdffile='default', fl_over='no',
+        fl_trim='no', fl_bias='no', trace='no', recenter='no', fl_flux='no',
+        fl_gscrrej='no', fl_extract='yes', fl_gsappwave='yes',
         fl_wavtran='yes', fl_novl='no', fl_skysub='yes',
-        reference='eprg' + flat, weights='no',
-        wavtraname='erg' + arc,
-        response='eprg' + flat + '_response.fits',
-        fl_vardq=vardq)
+        reference='eprg' + flat, weights='no', wavtraname='erg' + arc,
+        response='eprg' + flat + '_response.fits', fl_vardq=vardq)
     prefix = 'ste' + prefix
     #
     #   Apsumming the stellar spectra
     #
+
+    xinst = pf.getdata(prefix + starimg + '.fits', ext=1)['XINST']
+    if instrument == 'GMOS-N':
+        x0 = np.average(xinst[xinst < 10])
+    elif instrument == 'GMOS-S':
+        x0 = np.average(xinst[xinst > 10])
+
+    ap_expression = '((XINST-{:.2f})**2 + (YINST-2.45)**2)**0.5 < 1'.format(x0)
+
     iraf.gfapsum(
         prefix + starimg, fl_inter='no', lthreshold=400.,
-        reject='avsigclip')
+        reject='avsigclip', expr=ap_expression)
     #
     #   Building sensibility function
     #
@@ -138,14 +181,14 @@ def reduce_stdstar(rawdir, rundir, caldir, starobj, stdstar, flat,
     #
     iraf.gscalibrate(
         prefix + starimg, sfuncti='sens' + starimg,
-         extinct='onedstds$ctioextinct.dat',
-         observatory=observatory, fluxsca=1, fl_vardq=vardq)
+        extinct='onedstds$ctioextinct.dat', observatory=observatory,
+        fluxsca=1, fl_vardq=vardq)
     #
     #   Create data cubes
     #
     iraf.gfcube(
         'c' + prefix + starimg, outimage='dc' + prefix + starimg, ssample=.1,
-         fl_atmdisp='yes', fl_var=vardq, fl_dq=vardq)
+        fl_atmdisp='yes', fl_var=vardq, fl_dq=vardq)
 
     #
     # Test calibration
