@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 
-#
-#
-# ATTENTION!!!                                                        #
-# DO NOT follow on a reduction process unless you are sure about  #
-# the fiber masks in the MDF file. Disregarding this warning will #
-# most certainly lead to major headaches at the final stages of   #
-# the reduction.                                                  #
-#
-#
+#########################################################################
+#                                                                       #
+#   ATTENTION!!!                                                        #
+#       DO NOT follow on a reduction process unless you are sure about  #
+#       the fiber masks in the MDF file. Disregarding this warning will #
+#       most certainly lead to major headaches at the final stages of   #
+#       the reduction.                                                  #
+#                                                                       #
+#########################################################################
 
 # Table of images
 
@@ -16,6 +16,8 @@ from pyraf import iraf
 import matplotlib.pyplot as plt
 import numpy as np
 import pyfits as pf
+import glob
+import os
 from reduction import cal_reduction
 
 
@@ -61,7 +63,7 @@ def circular_aperture(image, radius=1):
 def reduce_stdstar(
         rawdir, rundir, caldir, starobj, stdstar, flat, arc, twilight,
         starimg, bias, overscan, vardq, lacos, observatory, apply_lacos,
-        lacos_xorder, lacos_yorder, bpm, instrument):
+        lacos_xorder, lacos_yorder, bpm, instrument, mdffile):
     """
     Reduction pipeline for standard star.
 
@@ -117,8 +119,9 @@ def reduce_stdstar(
     arc = arc.strip('.fits')
     starimg = starimg.strip('.fits')
 
-    iraf.gfreduce.bias = 'rawdir$' + bias
-    iraf.gireduce.bpm = 'rawdir$' + bpm
+    iraf.gfreduce.bias = 'rawdir$'+bias
+    iraf.gireduce.bpm = 'rawdir$'+bpm
+    mdfdir = 'gmos$data/'
 
     cal_reduction(
         rawdir=rawdir, rundir=rundir, flat=flat, arc=arc, twilight=twilight,

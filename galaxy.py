@@ -17,11 +17,9 @@ from pyraf import iraf
 # import pyfits as pf
 from reduction import cal_reduction
 
-
-def reduce_science(
-        rawdir, rundir, flat, arc, twilight, sciimg, starimg, bias, overscan,
-        vardq, observatory, lacos, apply_lacos, lacos_xorder, lacos_yorder,
-        bpm):
+def reduce_science(rawdir, rundir, flat, arc, twilight, sciimg,
+        starimg, bias, overscan, vardq, observatory, lacos, apply_lacos,
+        lacos_xorder, lacos_yorder, bpm, mdffile):
     """
     Reduction pipeline for standard star.
 
@@ -77,12 +75,13 @@ def reduce_science(
     arc = arc.strip('.fits')
     starimg = starimg.strip('.fits')
     sciimg = sciimg.strip('.fits')
-    iraf.gfreduce.bias = 'caldir$' + bias
-    iraf.gireduce.bpm = 'rawdir$' + bpm
+    iraf.gfreduce.bias = 'caldir$'+bias
+    iraf.gireduce.bpm = 'rawdir$'+bpm
+    mdfdir = 'gmos$data/'
 
-    cal_reduction(
+    mdfdir = cal_reduction(
         rawdir=rawdir, rundir=rundir, flat=flat, arc=arc, twilight=twilight,
-        bias=bias, bpm=bpm, overscan=overscan, vardq=vardq)
+        bias=bias, bpm=bpm, overscan=overscan, vardq=vardq, mdfdir=mdfdir)
     #
     #   Actually reduce science
     #
@@ -92,14 +91,15 @@ def reduce_science(
         fl_over=overscan, fl_trim='yes', fl_bias='yes', trace='no',
         recenter='no',
         fl_flux='no', fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
-        fl_wavtran='no', fl_novl='yes', fl_skysub='no', fl_vardq=vardq)
+        fl_wavtran='no', fl_novl='yes', fl_skysub='no', fl_vardq=vardq,
+        mdfdir=mdfdir)
     prefix = 'rg'
 
     # Gemfix
-    iraf.gemfix(prefix + sciimg, out='p' + prefix + sciimg, method='fixpix',
-                bitmask=1)
-    prefix = 'p' + prefix
-
+    iraf.gemfix(prefix+sciimg, out='p'+prefix+sciimg, method='fixpix', 
+         bitmask=1)
+    prefix = 'p'+prefix
+    
     if apply_lacos:
         iraf.gemcrspec(
             prefix + sciimg, out='l' + prefix + sciimg, sigfrac=0.32,

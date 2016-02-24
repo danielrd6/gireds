@@ -210,6 +210,29 @@ class pipeline():
 
             associated.append(element)
 
+        # Define mdf filename
+        # Based in gprepare.cl
+        # Did not account for observation in Nod-and-Shuffle
+        for i in associated:
+            header_flat = [k for j, k in enumerate(headers) \
+                if l[j] == i['flat']]
+            if len(header_flat):
+                header_flat = header_flat[0]
+                mdfPrefix = "g" + header_flat['instrume'][-1].lower()+"ifu_"
+                mdfSufix = ".fits"
+                if header_flat['dettype'] == "S10892":
+                    mdfSufix = "_HAM.fits"
+                MaskName =  header_flat['maskname']
+                if MaskName == "IFU-2":
+                   mdffile = mdfPrefix + "slits_mdf" + mdfSufix
+                elif MaskName == "IFU-B":
+                   mdffile = mdfPrefix + "slitb_mdf" + mdfSufix
+                elif MaskName == "IFU-R":       
+                   mdffile = mdfPrefix + "slitr_mdf" + mdfSufix
+                else:
+                   mdffile = 'default'
+                i['mdffile'] = mdffile
+
         sci_ims = [i for i in associated if i['obsclass'] == 'science']
         std_ims = [
             i for i in associated if i['obsclass'] in ['partnerCal', 'progCal']
@@ -247,7 +270,7 @@ class pipeline():
             apply_lacos=self.apply_lacos, instrument=dic['instrument'],
             lacos_xorder=self.cfg.getint('reduction', 'lacos_xorder'),
             lacos_yorder=self.cfg.getint('reduction', 'lacos_yorder'),
-            bpm=dic['bpm'])
+            bpm=dic['bpm'], mdffile=dic['mdffile'])
 
     def science(self, dic):
 
@@ -259,7 +282,7 @@ class pipeline():
             observatory=dic['observatory'], apply_lacos=self.apply_lacos,
             lacos_xorder=self.cfg.getint('reduction', 'lacos_xorder'),
             lacos_yorder=self.cfg.getint('reduction', 'lacos_yorder'),
-            bpm=dic['bpm'])
+            bpm=dic['bpm'], mdffile=dic['mdffile'])
 
 
 if __name__ == "__main__":
