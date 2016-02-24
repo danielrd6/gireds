@@ -211,8 +211,9 @@ class pipeline():
             associated.append(element)
 
         sci_ims = [i for i in associated if i['obsclass'] == 'science']
-        std_ims = [i for i in associated if i['obsclass'] in
-            ['partnerCal', 'progCal']]
+        std_ims = [
+            i for i in associated if i['obsclass'] in ['partnerCal', 'progCal']
+            ]
 
         # Get star info from starinfo.dat
         for i in std_ims:
@@ -243,7 +244,7 @@ class pipeline():
             arc=dic['arc'], twilight=dic['twilight'], starimg=dic['image'],
             bias=dic['bias'], overscan=self.fl_over, vardq=self.fl_vardq,
             lacos=self.lacos_file, observatory=dic['observatory'],
-            apply_lacos=self.apply_lacos,
+            apply_lacos=self.apply_lacos, instrument=dic['instrument'],
             lacos_xorder=self.cfg.getint('reduction', 'lacos_xorder'),
             lacos_yorder=self.cfg.getint('reduction', 'lacos_yorder'),
             bpm=dic['bpm'])
