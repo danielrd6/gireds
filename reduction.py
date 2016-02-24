@@ -16,7 +16,7 @@ import pyfits as pf
 import os
 
 def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
-        vardq, mdfdir):
+        vardq, mdfdir, mdffile):
     """
     Reduction pipeline for basic calibration images.
 
@@ -82,6 +82,9 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
             t_order=4, fl_flux='no', fl_gscrrej='no', fl_extract='yes',
             fl_gsappwave='no', fl_wavtran='no', fl_novl='no', fl_skysub='no',
             reference='', recenter='yes', fl_vardq=vardq)
+
+        # Apertures
+        mdfdir = apertures(flat, vardq, mdffile, mdfdir, overscan)
     
     #
     #   The twilight always has to match exactly the extraction of the
@@ -147,3 +150,401 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
             'erg'+arc, wavtran='erg'+arc, outpref='t', fl_vardq='no')
 
     return mdfdir
+
+def apertures(flat, vardq, mdffile, mdfdir, overscan):#, observatory):
+    """
+    Check the aperture solutions from GFEXTRACT and try to fix the 
+    problems if it's the case. 
+
+    Generally there's a few apertures with problems that, in 
+    consequence, shift others apertures to left/right, creating other 
+    errors. So, the strategy is to find this few apertures (one at 
+    time), mask/unamask it, and rerun GFEXTRACT to verify if the  
+    problems were solved.
+
+    With the information from the "aperg" file (output from), the
+    function separates the apertures in two categories: inside the 
+    the blocks of fibers and in the gaps between them. Analising this
+    gap apertures, it identify if this are left/right shifted.
+
+    To look for apertures with problems caused by a bad mdf, a
+    calculation of the expected separation between apertures are made.
+    This calculation is done using the medians of the separation 
+    between apertures (one for inside and other for gap apertures).
+    Based in the residual of expected and the real separation, it 
+    can be identifyed dead apertures (or very weak) that are not
+    masked in the mdf, good apertures that are masked, and fibers that
+    are been identifyed by two apertures.
+
+    Other searched error are the case when the first aperture are left
+    shifted cause it is identifying the "bump" in the left of the first
+    block. It is assumed that this error are consequence of other that 
+    propagate all the apertures to the left.
+
+    Unnusual separation values: ...
+
+    In the case of two slits, it were noted that the last apertures are
+    contaminated, and should be masked. This case is abranged.
+
+    With the informations of the shifts and the errors encountered, the
+    function decides which solution it will apply. For now, it only 
+    mask/unmask apertures in the mdf. The decision of which solution to
+    apply are based in pattern found in previous limited tests. It 
+    should be noted that many problems may not be abranged by this 
+    function. For while, it rerun GFEXTRACT with the default mdf (in the
+    future it may have the option of do it interactively).
+
+    Cases not tested: -slit=blue
+    Cases not fixed: -when there are two errors that propagate to the
+                     borders of the slits.
+                     -detailed solution for unnusual values.
+                     -add more
+
+    Step followed:
+    1 Identify shifts/errors.
+    2 Apply solution if founded.
+    3 If the case of two slit, repeat 1.
+    4 If result is GOOD, exit.
+    5 Rerun GFEXTRACT.
+    6 If there's no solution or the iteration limit was achieved, exit.
+    7 Repeat 1, to see if the errors were fixed
+
+    Parameters
+    ----------
+    flat: sting
+        Name of the file containing flat field image.
+    vardq: string
+        Use variance and DQ planes? [yes/no]
+    mdffile: string
+        Filename of the MDF.
+    mdfdir: string
+        Directory where MDF files are stored.
+    overscan: string
+        Apply overscan correction? [yes/no]
+    ###observatory: sting
+    ###    Gemini observatory [Gemini-Noth/Gemini-South].
+
+    Returns
+    -------
+    mdfdir: string
+        The new directory (if it's the case) where MDF files are saved.
+
+    Bugs
+    ----
+    Some errors may not be identifyed as result of limited tests
+    performed.
+    Example: No tests were made for the case slits=blue.
+    """
+    isIterating = True
+    resultError = False
+    noSolution = False
+    nIter = 0
+    while isIterating == True:
+        nIter += 1
+        print 80*"-"
+        print "                             APERTURES "
+        print "                            Iteration ", nIter 
+
+        ### Adicionar 'slits' aos dicionarios das estrelas/galaxias
+        ### Usar observatory como input
+        if mdffile[1] == 's':
+            observatory = 'Gemini-South'
+        elif mdffile[1] == 'n':
+            observatory = 'Gemini-North'
+
+        if mdffile[10] == 's': 
+            slits = 'both'
+            numSlit = 2
+        elif mdffile[10] == 'r': 
+            slits = 'red'
+            numSlit = 1
+        elif mdffile[10] == 'b': 
+            slits = 'blue'
+            numSlit = 1
+        else: 
+            slits = 'default'
+            numSlit = 0
+            print "Problem with the mdf filename."
+
+        reindentify_out = 0
+        isGood_out = 0
+        for slitNo in range(1, 1+numSlit):
+
+            # Read mdf data and create dictionary.
+            mdf = {'file':mdffile, 'dir':mdfdir, 'No':0, 'beam':0,
+                'modify':False, 'reindentify':False, 'interactive':'no',
+                'slits':slits, 'observ':observatory}
+            nsciext = pf.getval('prg'+flat+'.fits', ext=0, keyword='nsciext')
+            mdfFlatData = pf.getdata('prg'+flat+'.fits', ext=nsciext+1)
+            mdfSlit = mdfFlatData[750*(slitNo-1):750*slitNo]
+
+            # Read center/aperture info from aperg* file
+            apergFile = 'database/apeprg'+flat+'_'+str(slitNo)
+            with open(apergFile, 'r') as f: 
+                lines = f.readlines()
+            aperg_info = np.array([(i.split()[3], i.split()[5]) for i in lines \
+                             if 'begin' in i], dtype=float)
+
+            # Define structured array
+            infoname = ['No', 'center', 'dNo', 'dCenter', 'No_next', 'expected', 
+                'residual', 'where', 'error', 'errType', 'leftShift', 
+                'rightShift']
+            infofmt = ['int', 'float','int', 'float', 'int','float', 'float', 
+                '|S25', 'bool', '|S25', 'bool', 'bool']
+            info = np.zeros(len(aperg_info),  
+                 dtype={'names':infoname, 'formats':infofmt})
+            # Add information from aperg file
+            info['No'] = aperg_info[:,0]
+            info['center'] = aperg_info[:,1]
+            info['dNo'][:-1] = np.diff(info['No'])
+            info['dCenter'][:-1] = np.diff(info['center'])
+            info['No_next'][:-1] = aperg_info[1:,0]
+            # Separates apertures from inside of blocks and from the gaps. 
+            maskIN = info['dCenter'][:-1] < 2.8*np.median(info['dCenter'][:-1])
+            info['where'][:-1] = ['inside' if m==True else 'gap' \
+                                   for m in maskIN]
+
+            # Median values
+            ### Talvez fazer ele soh pegar valores sem muito desvio, para nao
+            ### levar em conta os valores no "bump"
+            medianIN = np.median([m['dCenter'] for m in info \
+                if m['where'] == 'inside'])
+            medianGAP = np.median([m['dCenter'] for m in info \
+                if m['where'] == 'gap'])
+
+            # Gap apertures that were shifted
+            infoGAP = info[info['where'] == 'gap']
+            leftShift = infoGAP[np.logical_and(infoGAP['No']%50 > 0, 
+                                               infoGAP['No']%50 < 25)]
+            rightShift = infoGAP[np.logical_or(infoGAP['No_next']%50 == 0, 
+                                               infoGAP['No_next']%50 > 25)]
+
+            # Modify dCenter values that have unnusual dCenter values. 
+            # Otherwise, the error identification may not work.
+            # It should be note that this correction may not work every time.
+            #******      vericar se o erro nao ocorre no aperg 2 tb     *******
+            if (mdf['slits'] == 'red' or mdf['slits'] == 'both') and slitNo==1:
+                if mdf['observ'].lower() == 'gemini-south':
+                    fix_No = infoGAP[abs(infoGAP['No'] - 450) < 10]['No'][0]
+                    info['dCenter'][info['No'] == fix_No] += medianIN*.5
+                elif mdf['observ'].lower() == 'gemini-north':
+                    fix_No = infoGAP[abs(infoGAP['No'] - 550) < 10]['No'][0]
+                    info['dCenter'][info['No'] == fix_No] += medianIN*.5
+
+            # Calculate the expecteds dCenter values, and identify the errors  
+            # based in the residuals.
+            for i in info[:-1]:
+                if i['where'] == 'inside':
+                    i['expected'] = i['dNo']*medianIN
+                else:
+                    i['expected'] = medianGAP + (i['dNo'] -1)*medianIN
+            info['residual'] = abs(info['dCenter'] - info['expected'])
+            tol = medianIN*.5
+            info['error'][1:] = info['residual'][1:] > tol
+            infoError = info[info['error']]
+            # Specify the type of the errors.
+            for i in infoError:
+                if i['dCenter'] == 0.:
+                    i['errType'] = 'twoID' #'doubleID'
+                elif i['dCenter'] - i['expected'] < 0: 
+                    i['errType'] = 'good' #'good_but_masked'
+                elif i['dCenter'] - i['expected'] > 0:
+                    i['errType'] = 'dead' #'dead_but_unmasked'
+            # If the error aren't the first or the last, assume it 
+            # was propagated (unnecessay line)
+            if len(infoError) > 2: infoError['errType'][1:-1] = '---' #'prop.'
+
+            # Tests
+            isGood = not len(infoError)
+            isLeftShift = len(leftShift)
+            isRightShift = len(rightShift)
+            isNoneShift = not(isLeftShift or isRightShift) 
+            isBothShift = isLeftShift and isRightShift
+            if (not(isGood) and nIter == 7): resultError = True #Stop iteration
+            # Unnusual values in gaps
+            if all([i in infoGAP['No'] for i in infoError['No']]): isGood=True
+
+            # Is first aperture identifying the "bump"         
+            if isLeftShift and (abs(leftShift[0]['No'] - (slitNo-1)*750) < 25):
+                isFirstShifted = True 
+            else: isFirstShifted = False
+
+            # Select the case
+            errType = infoError['errType']
+            if isGood:
+                mdf['reidentify'] = False
+                mdf['modify'] = False
+                isGood_out += 1 
+                if isGood_out == numSlit: 
+                    isIterating = False
+                    print "\nAPERTURES result: GOOD"
+            elif resultError:
+                mdf['modify'] = False
+                reidentify_out = True
+                mdf['dir'] = 'gmos$data/'
+                isIterating = False
+                print "\nAPERTURES result: ERROR"
+                print "After 7 iteration, APERTURES didn't fix the problem."
+                print "Repeat identification with default mdf."
+                break
+            elif isFirstShifted:
+                mdf['modify'] = True
+                mdf['reidentify'] = True
+                print "\nAPERTURES result: ERROR"
+                print "First fiber identifyied the bump."
+                if (mdf['slits'] == 'both') and \
+                                    (infoGAP['No'][-1] > infoError['No'][-1]):
+                    # Get the last unmasked aperture No. from mdf.
+                    mdf['No'] = mdfSlit[mdfSlit['beam'] == 1]['No'][-1]
+                    mdf['beam'] = -1
+                    print "Assuming that the last aperture should masked." +\
+                        "(Slits='both')"
+                    print "Mask aperture:", mdf['No']
+                elif errType[0] == 'dead':
+                    mdf['No'] = infoError[0]['No']
+                    mdf['beam'] = -1
+                    print "Bad fiber that is unmasked."
+                    print "Mask aperture:", mdf['No']
+                else:
+                    print "No solution were found to the errors."                
+            else:
+                mdf['reidentify'] = True
+                mdf['modify'] = True
+                print "\nAPERTURES result: ERROR"
+                if isNoneShift:
+                    print "No Shift."
+                    if errType[-1] == 'dead':
+                        mdf['No'] = infoError[0]['No_next']
+                        mdf['beam'] = -1
+                        print "Bad fiber that is unmasked."
+                        print "Mask aperture:", mdf['No']   
+                    else:
+                        noSolution = True
+                        print "No solution were found to the errors."
+                elif isBothShift:
+                    print "Both shift."
+                    if (errType[0] == errType[-1] == 'dead'):
+                        mdf['No'] = infoError[0]['No_next']
+                        mdf['beam'] = -1
+                        print "Two bad fibers that are unmasked."
+                        print "Mask aperture", mdf['No']   
+                    else:
+                        noSolution = True
+                        print "No solution were found to the errors."
+                else:
+                    if isLeftShift:
+                        print "Just left shift."
+                        if (mdf['slits'] == 'both') and \
+                                    (infoGAP['No'][-1] > infoError['No'][-1]):
+                            # Get the last unmasked aperture No. from mdf.
+                            mdf['No'] = mdfSlit[mdfSlit['beam'] == 1]['No'][-1]
+                            mdf['beam'] = -1
+                            print "Assuming that the last aperture should"+\
+                                  "masked. (Slits=both)"
+                            print "Mask aperture:", mdf['No']
+                        elif errType[0] == 'good':
+                            mdf['No'] = infoError[0]['No']+1
+                            mdf['beam'] = 1
+                            print "Good fiber that is masked."
+                            print "Unmask aperture:", mdf['No']   
+                        elif errType[-1] == 'dead':
+                            print "Bad fiber that is unmasked."
+                            mdf['beam'] = -1
+                            if infoError[-1]['No_next'] in infoGAP['No']:
+                                mdf['No'] = infoError[-1]['No_next']
+                                print "Mask aperture:", mdf['No']   
+                            else:
+                                mdf['No'] = infoError[-1]['No']
+                                print "Mask aperture:", mdf['No']
+                        else:
+                            noSolution = True
+                            print "No solution were found to the errors."
+                    elif isRightShift:
+                        print "Just right shift."
+                        if errType[0] == 'dead':
+                            mdf['No'] = infoError[0]['No_next']
+                            mdf['beam'] = -1
+                            print "Bad fiber that is unmasked."
+                            print "Mask aperture:", mdf['No']
+                        else:
+                            noSolution = True
+                            print "No solution were found to the errors."
+                    else:
+                        noSolution = True
+                        print "No solution were found to the errors."
+                        #print "Running GFEXTRACT in interctive mode."
+                        #mdf['interactive'] = True
+                        isIterating = False
+
+            reindentify_out += mdf['reidentify']
+
+            # Repeat identification with default mdf if no solution was found.
+            if noSolution:
+                mdf['modify'] = False
+                reindentify_out = True
+                mdf['dir'] = 'gmos$data/'
+                isIterating = False
+                print "\nAPERTURES result: ERROR"
+                print "No solution was found."
+                print "Repeat identification with default mdf."
+                break
+
+            # Fix aperture
+            if mdf['modify']:
+                mdf['dir'] = 'procdir$/'
+
+                # mdf filename
+                mdf['file'] = mdffile
+
+                # Copy mdf file to procdir
+                ### Pode falhar se apenas o segundo conj. tiver problemas na
+                ### primeira iteracao.
+                '''
+                if os.path.isfile(mdf['file']) and (nIter == slitNo == 1):
+                    iraf.imdelete(mdf['dir'] + mdf['file'])
+                iraf.tcopy('gmos$data/' + mdf['file'], 
+                    mdf['dir'] + mdf['file'])
+                '''
+                if nIter == slitNo == 1:
+                    if os.path.isfile(mdf['file']):
+                        iraf.imdelete(mdf['dir'] + mdf['file'])
+                    iraf.tcopy('gmos$data/' + mdf['file'], 
+                        mdf['dir'] + mdf['file'])                    
+
+                # Modify mdf
+                #'''
+                os.remove(apergFile)
+                os.remove(apergFile.replace('_'+str(slitNo), 
+                    '_dq_'+str(slitNo)))
+                os.remove(apergFile.replace('_'+str(slitNo), 
+                    '_var_'+str(slitNo)))
+                #'''
+                #os.remove(apergFile.replace('_', '*')
+                
+                iraf.tcal(mdf['dir'] + mdf['file'], outcol="BEAM", 
+                    equals="if NO=="+ str(mdf['No']) +" then " + \
+                    str(mdf['beam']) + " else BEAM")
+
+                # Add new mdf to flat
+                flatFits = pf.open('prg'+flat+'.fits')
+                iraf.imdelete('prg'+flat+'.fits')
+                mdfData = pf.getdata(mdf['file'], ext=1)
+                flatFits[nsciext+1].data = mdfData
+                flatFits.writeto('prg'+flat+'.fits')
+                flatFits.close()
+                
+        # Reidentify
+        if reindentify_out:
+            iraf.imdelete('eprg'+flat+'.fits')
+            iraf.gfreduce(
+                'prg'+flat, slits='header', rawpath='./', 
+                fl_inter=mdf['interactive'],
+                fl_addmdf='no', key_mdf='MDF', mdffile=mdf['file'],
+                mdfdir=mdf['dir'], weights='no',
+                fl_over=overscan, fl_trim='no', fl_bias='no', trace='yes',
+                t_order=4, fl_flux='no', fl_gscrrej='no', fl_extract='yes',
+                fl_gsappwave='no', fl_wavtran='no', fl_novl='no', 
+                fl_skysub='no', reference='', recenter='yes', fl_vardq=vardq)
+
+    return mdf['dir']
+

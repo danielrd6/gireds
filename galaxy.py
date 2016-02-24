@@ -81,7 +81,8 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, sciimg,
 
     mdfdir = cal_reduction(
         rawdir=rawdir, rundir=rundir, flat=flat, arc=arc, twilight=twilight,
-        bias=bias, bpm=bpm, overscan=overscan, vardq=vardq, mdfdir=mdfdir)
+        bias=bias, bpm=bpm, overscan=overscan, vardq=vardq, mdfdir=mdfdir, 
+        mdffile=mdffile)
     #
     #   Actually reduce science
     #
