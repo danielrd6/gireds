@@ -17,7 +17,7 @@ import os
 import glob
 
 def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
-        vardq, mdfdir, mdffile):
+        vardq, mdffile):
     """
     Reduction pipeline for basic calibration images.
 
@@ -70,7 +70,7 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
             fl_over=overscan, fl_trim='yes', fl_bias='yes', trace='no',
             fl_flux='no', fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
             fl_wavtran='no', fl_novl='no', fl_skysub='no', 
-            recenter='no', fl_vardq=vardq, mdfdir=mdfdir)
+            recenter='no', fl_vardq=vardq, mdfdir='gmos$data/')
 
         # Gemfix
         iraf.gemfix('rg'+flat, out='prg'+flat, method='fixpix', 
@@ -85,12 +85,9 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
             reference='', recenter='yes', fl_vardq=vardq)
 
         # Apertures
-        mdfdir = apertures(flat, vardq, mdffile, mdfdir, overscan)
+        apertures(flat, vardq, mdffile, overscan)
 
     # copy mdf used by flat
-    # ******* nao vai mais precisar retornar mdfdir ******
-    # ******* sempre usar mdfdir=procdir para arquivo!=flat ******
-    mdfdir = 'procdir$'
     if os.path.isfile(mdffile):
         iraf.imdelete('procdir$' + mdffile)
     iraf.cd('gmos$data/')
@@ -118,7 +115,7 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
         fl_over=overscan, fl_trim='yes', fl_bias='yes', trace='no',
         fl_flux='no', fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
         fl_wavtran='no', fl_novl='no', fl_skysub='no', 
-        recenter='no', fl_vardq=vardq, mdfdir=mdfdir)
+        recenter='no', fl_vardq=vardq, mdfdir='procdir$')
 
     # Gemfix
     iraf.gemfix('rg'+twilight, out='prg'+twilight, method='fixpix', 
@@ -149,7 +146,7 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
             fl_over=overscan, fl_trim='yes', fl_bias='no', trace='no',
             recenter='no', fl_flux='no', fl_gscrrej='no', fl_extract='yes',
             fl_gsappwave='no', fl_wavtran='no', fl_novl='no', fl_skysub='no',
-            reference='eprg'+flat, fl_vardq='no', mdfdir=mdfdir)
+            reference='eprg'+flat, fl_vardq='no', mdfdir='procdir$')
     # 
     #   Finding wavelength solution
     #   Note: the automatic identification is very good
@@ -166,9 +163,7 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
         iraf.gftransform(
             'erg'+arc, wavtran='erg'+arc, outpref='t', fl_vardq='no')
 
-    return mdfdir
-
-def apertures(flat, vardq, mdffile, mdfdir, overscan):#, observatory):
+def apertures(flat, vardq, mdffile, overscan):#, observatory):
     """
     Check the aperture solutions from GFEXTRACT and try to fix the 
     problems if it's the case. 
@@ -234,17 +229,10 @@ def apertures(flat, vardq, mdffile, mdfdir, overscan):#, observatory):
         Use variance and DQ planes? [yes/no]
     mdffile: string
         Filename of the MDF.
-    mdfdir: string
-        Directory where MDF files are stored.
     overscan: string
         Apply overscan correction? [yes/no]
     ###observatory: sting
     ###    Gemini observatory [Gemini-Noth/Gemini-South].
-
-    Returns
-    -------
-    mdfdir: string
-        The new directory (if it's the case) where MDF files are saved.
 
     Bugs
     ----
@@ -289,7 +277,7 @@ def apertures(flat, vardq, mdffile, mdfdir, overscan):#, observatory):
         for slitNo in range(1, 1+numSlit):
 
             # Read mdf data and create dictionary.
-            mdf = {'file':mdffile, 'dir':mdfdir, 'No':0, 'beam':0,
+            mdf = {'file':mdffile, 'dir':'', 'No':0, 'beam':0,
                 'modify':False, 'reidentify':False, 'interactive':'no',
                 'slits':slits, 'observ':observatory}
             nsciext = pf.getval('prg'+flat+'.fits', ext=0, keyword='nsciext')
@@ -529,8 +517,6 @@ def apertures(flat, vardq, mdffile, mdfdir, overscan):#, observatory):
                 isIterating = False
                 mdf['modify'] = False
                 reidentify_out = True
-                mdfdir = 'procdir$'
-                mdf['file'] = mdffile
 
                 # Remove old aperg files
                 apergPrefList = ['_', '_dq_', '_var_']
@@ -558,9 +544,6 @@ def apertures(flat, vardq, mdffile, mdfdir, overscan):#, observatory):
                 # Open flat data
                 flatFits = pf.open('prg'+flat+'.fits')
                 iraf.imdelete('prg'+flat+'.fits')
-                # ****     retirar mais tarde      ****
-                mdf['dir'] = 'procdir$/'
-                mdf['file'] = mdffile
 
                 # Modify mdf
                 mdfext = nsciext+1
@@ -577,12 +560,12 @@ def apertures(flat, vardq, mdffile, mdfdir, overscan):#, observatory):
             iraf.gfreduce(
                 'prg'+flat, slits='header', rawpath='./', 
                 fl_inter=mdf['interactive'],
-                fl_addmdf='no', key_mdf='MDF', mdffile=mdf['file'],
-                mdfdir=mdf['dir'], weights='no',
+                fl_addmdf='no', key_mdf='MDF', mdffile='default',
+                mdfdir='procdir$', weights='no',
                 fl_over=overscan, fl_trim='no', fl_bias='no', trace='yes',
                 t_order=4, fl_flux='no', fl_gscrrej='no', fl_extract='yes',
                 fl_gsappwave='no', fl_wavtran='no', fl_novl='no', 
                 fl_skysub='no', reference='', recenter='yes', fl_vardq=vardq)
 
-    return mdf['dir']
+    return
 

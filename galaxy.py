@@ -77,12 +77,10 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, sciimg,
     sciimg = sciimg.strip('.fits')
     iraf.gfreduce.bias = 'caldir$'+bias
     iraf.gireduce.bpm = 'rawdir$'+bpm
-    mdfdir = 'gmos$data/'
 
-    mdfdir = cal_reduction(
+    cal_reduction(
         rawdir=rawdir, rundir=rundir, flat=flat, arc=arc, twilight=twilight,
-        bias=bias, bpm=bpm, overscan=overscan, vardq=vardq, mdfdir=mdfdir, 
-        mdffile=mdffile)
+        bias=bias, bpm=bpm, overscan=overscan, vardq=vardq, mdffile=mdffile)
     #
     #   Actually reduce science
     #
@@ -93,7 +91,7 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, sciimg,
         recenter='no',
         fl_flux='no', fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
         fl_wavtran='no', fl_novl='yes', fl_skysub='no', fl_vardq=vardq,
-        mdfdir=mdfdir)
+        mdfdir='procdir$')
     prefix = 'rg'
 
     # Gemfix
