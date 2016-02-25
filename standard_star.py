@@ -119,11 +119,11 @@ def reduce_stdstar(
 
     iraf.gfreduce.bias = 'rawdir$' + bias
     iraf.gireduce.bpm = 'rawdir$' + bpm
-    # mdfdir = 'gmos$data/'
+    mdfdir = 'gmos$data/'
 
     cal_reduction(
         rawdir=rawdir, rundir=rundir, flat=flat, arc=arc, twilight=twilight,
-        bias=bias, bpm=bpm, overscan=overscan, vardq=vardq)
+        bias=bias, bpm=bpm, overscan=overscan, vardq=vardq, mdfdir=mdfdir)
     #
     #   Actually reduce star
     #

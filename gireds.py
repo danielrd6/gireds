@@ -237,18 +237,33 @@ class pipeline():
         sci_ims = [i for i in associated if i['obsclass'] == 'science']
         std_ims = [
             i for i in associated if i['obsclass'] in ['partnerCal', 'progCal']
-        ]
+            ]
 
         # Get star info from starinfo.dat
+        possible_names = np.concatenate((starinfo['obj'], starinfo['std'],
+                                         starinfo['altname']))
+        n_names = len(possible_names)
+
+        for i, j in enumerate(possible_names):
+            possible_names[i] = (j.lower()).replace(' ', '')
+
         for i in std_ims:
             # Removes the 'standard_star' key if the dictionary
             # element in question refers to a standard star.
             del i['standard_star']
+            starname = (i['object'].lower()).replace(' ', '')
 
-            starinfo_idx = [j for j, m in enumerate(starinfo['obj'])
-                            if m == i['object']][0]
-            i['stdstar'] = starinfo[starinfo_idx]['std']
-            i['caldir'] = starinfo[starinfo_idx]['caldir']
+            try:
+                stdstar_idx = (
+                    np.arange(n_names)[possible_names == starname] %
+                    (n_names / 3))[0]
+            except:
+                raise Exception(
+                    'Standard star named {:s} not found in file {:s}'.
+                    format(starname, starinfo_file))
+
+            i['stdstar'] = starinfo[stdstar_idx]['std']
+            i['caldir'] = starinfo[stdstar_idx]['caldir']
 
         self.sci = sci_ims
         self.std = std_ims
