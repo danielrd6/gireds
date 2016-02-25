@@ -14,6 +14,7 @@ from pyraf import iraf
 import numpy as np
 import pyfits as pf
 import os
+import glob
 
 def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
         vardq, mdfdir, mdffile):
@@ -85,7 +86,23 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
 
         # Apertures
         mdfdir = apertures(flat, vardq, mdffile, mdfdir, overscan)
-    
+
+    # copy mdf used by flat
+    # ******* nao vai mais precisar retornar mdfdir ******
+    # ******* sempre usar mdfdir=procdir para arquivo!=flat ******
+    mdfdir = 'procdir$'
+    if os.path.isfile(mdffile):
+        iraf.imdelete('procdir$' + mdffile)
+    iraf.cd('gmos$data/')
+    mdfFits = pf.open(mdffile)
+    iraf.cd('procdir')
+
+    nsciext = pf.getval('prg'+flat+'.fits', ext=0, keyword='nsciext')
+    mdfFlatData = pf.getdata('prg'+flat+'.fits', ext=nsciext+1)
+    mdfFits[1].data = mdfFlatData
+    mdfFits.writeto(mdffile)
+    mdfFits.close()
+
     #
     #   The twilight always has to match exactly the extraction of the
     #   flat field image, therefore it must be re-reduced for every
@@ -94,7 +111,7 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
     if os.path.isfile('eprg'+twilight+'.fits'):
         iraf.delete('*'+twilight+'.fits')
         iraf.delete('./database/ap*'+twilight+'*')
-    
+
     iraf.gfreduce(
         twilight, slits='header', rawpath='rawdir$', fl_inter='no',
         fl_addmdf='yes', key_mdf='MDF', mdffile='default', weights='no',
@@ -323,6 +340,7 @@ def apertures(flat, vardq, mdffile, mdfdir, overscan):#, observatory):
             # Otherwise, the error identification may not work.
             # It should be note that this correction may not work every time.
             #******      vericar se o erro nao ocorre no aperg 2 tb     *******
+            #******      talvez fosse melhor retirar essas linhas       *******
             if (mdf['slits'] == 'red' or mdf['slits'] == 'both') and slitNo==1:
                 if mdf['observ'].lower() == 'gemini-south':
                     fix_No = infoGAP[abs(infoGAP['No'] - 450) < 10]['No'][0]
@@ -350,9 +368,10 @@ def apertures(flat, vardq, mdffile, mdfdir, overscan):#, observatory):
                     i['errType'] = 'good' #'good_but_masked'
                 elif i['dCenter'] - i['expected'] > 0:
                     i['errType'] = 'dead' #'dead_but_unmasked'
-            # If the error aren't the first or the last, assume it 
-            # was propagated (unnecessay line)
-            if len(infoError) > 2: infoError['errType'][1:-1] = '---' #'prop.'
+            # If the error isn't the first or the last, assume that it 
+            # was propagated
+            # *********  linha desnecessaria (nao usada)   **********
+            #if len(infoError) > 2: infoError['errType'][1:-1] = '---' #'prop.'
 
             # Tests
             isGood = not len(infoError)
@@ -361,7 +380,8 @@ def apertures(flat, vardq, mdffile, mdfdir, overscan):#, observatory):
             isNoneShift = not(isLeftShift or isRightShift) 
             isBothShift = isLeftShift and isRightShift
             if (not(isGood) and nIter == 7): resultError = True #Stop iteration
-            # Unnusual values in gaps
+            # Unnusual values in gaps 
+            # *****  melhorar   *****
             if all([i in infoGAP['No'] for i in infoError['No']]): isGood=True
 
             # Is first aperture identifying the "bump"         
@@ -489,47 +509,25 @@ def apertures(flat, vardq, mdffile, mdfdir, overscan):#, observatory):
                 print "Repeat identification with default mdf."
                 break
 
-            # Fix aperture
+            # Fix aperturef
             if mdf['modify']:
-                mdf['dir'] = 'procdir$/'
+                # Remove old aperg files
+                apergPrefList = ['_', '_dq_', '_var_']
+                [os.remove(apergFile.replace('_', i)) for i in apergPrefList]
 
-                # mdf filename
-                mdf['file'] = mdffile
-
-                # Copy mdf file to procdir
-                ### Pode falhar se apenas o segundo conj. tiver problemas na
-                ### primeira iteracao.
-                '''
-                if os.path.isfile(mdf['file']) and (nIter == slitNo == 1):
-                    iraf.imdelete(mdf['dir'] + mdf['file'])
-                iraf.tcopy('gmos$data/' + mdf['file'], 
-                    mdf['dir'] + mdf['file'])
-                '''
-                if nIter == slitNo == 1:
-                    if os.path.isfile(mdf['file']):
-                        iraf.imdelete(mdf['dir'] + mdf['file'])
-                    iraf.tcopy('gmos$data/' + mdf['file'], 
-                        mdf['dir'] + mdf['file'])                    
-
-                # Modify mdf
-                #'''
-                os.remove(apergFile)
-                os.remove(apergFile.replace('_'+str(slitNo), 
-                    '_dq_'+str(slitNo)))
-                os.remove(apergFile.replace('_'+str(slitNo), 
-                    '_var_'+str(slitNo)))
-                #'''
-                #os.remove(apergFile.replace('_', '*')
-                
-                iraf.tcal(mdf['dir'] + mdf['file'], outcol="BEAM", 
-                    equals="if NO=="+ str(mdf['No']) +" then " + \
-                    str(mdf['beam']) + " else BEAM")
-
-                # Add new mdf to flat
+                # open mdf data
                 flatFits = pf.open('prg'+flat+'.fits')
                 iraf.imdelete('prg'+flat+'.fits')
-                mdfData = pf.getdata(mdf['file'], ext=1)
-                flatFits[nsciext+1].data = mdfData
+                # ****     retirar mais tarde      ****
+                mdf['dir'] = 'procdir$/'
+                mdf['file'] = mdffile
+
+                # Modify mdf
+                mdfext = nsciext+1
+                modify_mask = flatFits[mdfext].data['No'] == mdf['No']
+                flatFits[mdfext].data['beam'][modify_mask] = mdf['beam']
+
+                # Add new mdf to flat
                 flatFits.writeto('prg'+flat+'.fits')
                 flatFits.close()
                 
