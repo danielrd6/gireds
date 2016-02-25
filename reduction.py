@@ -283,13 +283,13 @@ def apertures(flat, vardq, mdffile, mdfdir, overscan):#, observatory):
             numSlit = 0
             print "Problem with the mdf filename."
 
-        reindentify_out = 0
+        reidentify_out = 0
         isGood_out = 0
         for slitNo in range(1, 1+numSlit):
 
             # Read mdf data and create dictionary.
             mdf = {'file':mdffile, 'dir':mdfdir, 'No':0, 'beam':0,
-                'modify':False, 'reindentify':False, 'interactive':'no',
+                'modify':False, 'reidentify':False, 'interactive':'no',
                 'slits':slits, 'observ':observatory}
             nsciext = pf.getval('prg'+flat+'.fits', ext=0, keyword='nsciext')
             mdfFlatData = pf.getdata('prg'+flat+'.fits', ext=nsciext+1)
@@ -379,10 +379,10 @@ def apertures(flat, vardq, mdffile, mdfdir, overscan):#, observatory):
             isRightShift = len(rightShift)
             isNoneShift = not(isLeftShift or isRightShift) 
             isBothShift = isLeftShift and isRightShift
-            if (not(isGood) and nIter == 7): resultError = True #Stop iteration
             # Unnusual values in gaps 
-            # *****  melhorar   *****
             if all([i in infoGAP['No'] for i in infoError['No']]): isGood=True
+            # Stop iteration if iteration limit was achieved.
+            if (not(isGood) and nIter == 7): resultError = True
 
             # Is first aperture identifying the "bump"         
             if isLeftShift and (abs(leftShift[0]['No'] - (slitNo-1)*750) < 25):
@@ -399,14 +399,9 @@ def apertures(flat, vardq, mdffile, mdfdir, overscan):#, observatory):
                     isIterating = False
                     print "\nAPERTURES result: GOOD"
             elif resultError:
-                mdf['modify'] = False
-                reidentify_out = True
-                mdf['dir'] = 'gmos$data/'
-                isIterating = False
                 print "\nAPERTURES result: ERROR"
                 print "After 7 iteration, APERTURES didn't fix the problem."
                 print "Repeat identification with default mdf."
-                break
             elif isFirstShifted:
                 mdf['modify'] = True
                 mdf['reidentify'] = True
@@ -426,7 +421,7 @@ def apertures(flat, vardq, mdffile, mdfdir, overscan):#, observatory):
                     print "Bad fiber that is unmasked."
                     print "Mask aperture:", mdf['No']
                 else:
-                    print "No solution were found to the errors."                
+                    noSolution = True
             else:
                 mdf['reidentify'] = True
                 mdf['modify'] = True
@@ -440,7 +435,6 @@ def apertures(flat, vardq, mdffile, mdfdir, overscan):#, observatory):
                         print "Mask aperture:", mdf['No']   
                     else:
                         noSolution = True
-                        print "No solution were found to the errors."
                 elif isBothShift:
                     print "Both shift."
                     if (errType[0] == errType[-1] == 'dead'):
@@ -450,7 +444,6 @@ def apertures(flat, vardq, mdffile, mdfdir, overscan):#, observatory):
                         print "Mask aperture", mdf['No']   
                     else:
                         noSolution = True
-                        print "No solution were found to the errors."
                 else:
                     if isLeftShift:
                         print "Just left shift."
@@ -478,7 +471,6 @@ def apertures(flat, vardq, mdffile, mdfdir, overscan):#, observatory):
                                 print "Mask aperture:", mdf['No']
                         else:
                             noSolution = True
-                            print "No solution were found to the errors."
                     elif isRightShift:
                         print "Just right shift."
                         if errType[0] == 'dead':
@@ -488,34 +480,51 @@ def apertures(flat, vardq, mdffile, mdfdir, overscan):#, observatory):
                             print "Mask aperture:", mdf['No']
                         else:
                             noSolution = True
-                            print "No solution were found to the errors."
                     else:
                         noSolution = True
-                        print "No solution were found to the errors."
-                        #print "Running GFEXTRACT in interctive mode."
-                        #mdf['interactive'] = True
-                        isIterating = False
+            reidentify_out += mdf['reidentify']
 
-            reindentify_out += mdf['reidentify']
-
-            # Repeat identification with default mdf if no solution was found.
+            # No solution message
             if noSolution:
-                mdf['modify'] = False
-                reindentify_out = True
-                mdf['dir'] = 'gmos$data/'
-                isIterating = False
                 print "\nAPERTURES result: ERROR"
                 print "No solution was found."
                 print "Repeat identification with default mdf."
+                #print "Running GFEXTRACT in interctive mode."
+                #mdf['interactive'] = True
+
+            # Repeat identification with default mdf if restulted in error or
+            # no solution was found.
+            if noSolution or resultError:
+                isIterating = False
+                mdf['modify'] = False
+                reidentify_out = True
+                mdfdir = 'procdir$'
+                mdf['file'] = mdffile
+
+                # Remove old aperg files
+                apergPrefList = ['_', '_dq_', '_var_']
+                [os.remove(apergFile.replace('_', i)) for i in apergPrefList]
+
+                # Get original mdf data
+                iraf.cd('gmos$data/')
+                mdfData = pf.getdata(mdffile, ext=1)
+                iraf.cd('procdir')
+
+                # Modify mdf table in flat
+                flatFits = pf.open('prg'+flat+'.fits')
+                iraf.imdelete('prg'+flat+'.fits')
+                flatFits[nsciext+1].data = mdfData
+                flatFits.writeto('prg'+flat+'.fits')
+                flatFits.close()
                 break
 
-            # Fix aperturef
+            # Modify mdf table
             if mdf['modify']:
                 # Remove old aperg files
                 apergPrefList = ['_', '_dq_', '_var_']
                 [os.remove(apergFile.replace('_', i)) for i in apergPrefList]
 
-                # open mdf data
+                # Open flat data
                 flatFits = pf.open('prg'+flat+'.fits')
                 iraf.imdelete('prg'+flat+'.fits')
                 # ****     retirar mais tarde      ****
@@ -532,7 +541,7 @@ def apertures(flat, vardq, mdffile, mdfdir, overscan):#, observatory):
                 flatFits.close()
                 
         # Reidentify
-        if reindentify_out:
+        if reidentify_out:
             iraf.imdelete('eprg'+flat+'.fits')
             iraf.gfreduce(
                 'prg'+flat, slits='header', rawpath='./', 
