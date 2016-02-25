@@ -63,7 +63,7 @@ def circular_aperture(image, radius=1):
 def reduce_stdstar(
         rawdir, rundir, caldir, starobj, stdstar, flat, arc, twilight,
         starimg, bias, overscan, vardq, lacos, observatory, apply_lacos,
-        lacos_xorder, lacos_yorder, bpm, instrument, mdffile):
+        lacos_xorder, lacos_yorder, bpm, instrument, mdffile, slits):
     """
     Reduction pipeline for standard star.
 
@@ -124,7 +124,8 @@ def reduce_stdstar(
 
     cal_reduction(
         rawdir=rawdir, rundir=rundir, flat=flat, arc=arc, twilight=twilight,
-        bias=bias, bpm=bpm, overscan=overscan, vardq=vardq, mdffile=mdffile)
+        bias=bias, bpm=bpm, overscan=overscan, vardq=vardq, mdffile=mdffile,
+        instrument=instrument, slits=slits)
     #
     #   Actually reduce star
     #

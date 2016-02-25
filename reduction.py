@@ -17,7 +17,7 @@ import os
 import glob
 
 def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
-        vardq, mdffile):
+        vardq, instrument, mdffile, slits):
     """
     Reduction pipeline for basic calibration images.
 
@@ -85,7 +85,7 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
             reference='', recenter='yes', fl_vardq=vardq)
 
         # Apertures
-        apertures(flat, vardq, mdffile, overscan)
+        apertures(flat, vardq, mdffile, overscan, instrument, slits)
 
     # copy mdf used by flat
     if os.path.isfile(mdffile):
@@ -163,7 +163,7 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
         iraf.gftransform(
             'erg'+arc, wavtran='erg'+arc, outpref='t', fl_vardq='no')
 
-def apertures(flat, vardq, mdffile, overscan):#, observatory):
+def apertures(flat, vardq, mdffile, overscan, instrument, slits):
     """
     Check the aperture solutions from GFEXTRACT and try to fix the 
     problems if it's the case. 
@@ -215,7 +215,7 @@ def apertures(flat, vardq, mdffile, overscan):#, observatory):
     Step followed:
     1 Identify shifts/errors.
     2 Apply solution if founded.
-    3 If the case of two slit, repeat 1.
+    3 In the case of two slit, repeat 1.
     4 If result is GOOD, exit.
     5 Rerun GFEXTRACT.
     6 If there's no solution or the iteration limit was achieved, exit.
@@ -231,8 +231,8 @@ def apertures(flat, vardq, mdffile, overscan):#, observatory):
         Filename of the MDF.
     overscan: string
         Apply overscan correction? [yes/no]
-    ###observatory: sting
-    ###    Gemini observatory [Gemini-Noth/Gemini-South].
+    instrument: string
+        Instrument [GMOS-S/GMOS-N].
 
     Bugs
     ----
@@ -250,27 +250,9 @@ def apertures(flat, vardq, mdffile, overscan):#, observatory):
         iraf.printlog(29*" " + "APERTURES", 'logfile.log', 'yes')
         iraf.printlog(28*" " + "Iteration " + str(nIter), 'logfile.log', 'yes')
 
-        ### Adicionar 'slits' aos dicionarios das estrelas/galaxias
-        ### Usar observatory como input
-        if mdffile[1] == 's':
-            observatory = 'Gemini-South'
-        elif mdffile[1] == 'n':
-            observatory = 'Gemini-North'
-
-        if mdffile[10] == 's': 
-            slits = 'both'
-            numSlit = 2
-        elif mdffile[10] == 'r': 
-            slits = 'red'
-            numSlit = 1
-        elif mdffile[10] == 'b': 
-            slits = 'blue'
-            numSlit = 1
-        else: 
-            slits = 'default'
-            numSlit = 0
-            iraf.printlog("Problem with the mdf filename.", 'logfile.log', 
-                          'yes')
+        # Number of slits
+        if slits == 'both': numSlit = 2
+        if (slits == 'red') or (slits == 'blue'): numSlit = 1
 
         reidentify_out = 0
         isGood_out = 0
@@ -279,7 +261,7 @@ def apertures(flat, vardq, mdffile, overscan):#, observatory):
             # Read mdf data and create dictionary.
             mdf = {'file':mdffile, 'dir':'', 'No':0, 'beam':0,
                 'modify':False, 'reidentify':False, 'interactive':'no',
-                'slits':slits, 'observ':observatory}
+                'slits':slits, 'instr':instrument}
             nsciext = pf.getval('prg'+flat+'.fits', ext=0, keyword='nsciext')
             mdfFlatData = pf.getdata('prg'+flat+'.fits', ext=nsciext+1)
             mdfSlit = mdfFlatData[750*(slitNo-1):750*slitNo]
@@ -331,10 +313,10 @@ def apertures(flat, vardq, mdffile, overscan):#, observatory):
             #******      vericar se o erro nao ocorre no aperg 2 tb     *******
             #******      talvez fosse melhor retirar essas linhas       *******
             if (mdf['slits'] == 'red' or mdf['slits'] == 'both') and slitNo==1:
-                if mdf['observ'].lower() == 'gemini-south':
+                if mdf['instr'].lower() == 'gmos-s':
                     fix_No = infoGAP[abs(infoGAP['No'] - 450) < 10]['No'][0]
                     info['dCenter'][info['No'] == fix_No] += medianIN*.5
-                elif mdf['observ'].lower() == 'gemini-north':
+                elif mdf['instr'].lower() == 'gmos-n':
                     fix_No = infoGAP[abs(infoGAP['No'] - 550) < 10]['No'][0]
                     info['dCenter'][info['No'] == fix_No] += medianIN*.5
 
@@ -357,10 +339,6 @@ def apertures(flat, vardq, mdffile, overscan):#, observatory):
                     i['errType'] = 'good' #'good_but_masked'
                 elif i['dCenter'] - i['expected'] > 0:
                     i['errType'] = 'dead' #'dead_but_unmasked'
-            # If the error isn't the first or the last, assume that it 
-            # was propagated
-            # *********  linha desnecessaria (nao usada)   **********
-            #if len(infoError) > 2: infoError['errType'][1:-1] = '---' #'prop.'
 
             # Tests
             isGood = not len(infoError)
