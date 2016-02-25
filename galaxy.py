@@ -75,8 +75,8 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, sciimg,
     arc = arc.strip('.fits')
     starimg = starimg.strip('.fits')
     sciimg = sciimg.strip('.fits')
-    iraf.gfreduce.bias = 'caldir$'+bias
-    iraf.gireduce.bpm = 'rawdir$'+bpm
+    iraf.gfreduce.bias = 'caldir$' + bias
+    iraf.gireduce.bpm = 'rawdir$' + bpm
 
     cal_reduction(
         rawdir=rawdir, rundir=rundir, flat=flat, arc=arc, twilight=twilight,
@@ -96,10 +96,10 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, sciimg,
     prefix = 'rg'
 
     # Gemfix
-    iraf.gemfix(prefix+sciimg, out='p'+prefix+sciimg, method='fixpix', 
-         bitmask=1)
-    prefix = 'p'+prefix
-    
+    iraf.gemfix(prefix + sciimg, out='p' + prefix + sciimg, method='fixpix',
+                bitmask=1)
+    prefix = 'p' + prefix
+
     if apply_lacos:
         iraf.gemcrspec(
             prefix + sciimg, out='l' + prefix + sciimg, sigfrac=0.32,

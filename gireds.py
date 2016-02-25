@@ -127,7 +127,7 @@ class pipeline():
                 'mjd': mjd, 'grating': hdr['grating'],
                 'filter1': hdr['filter1'], 'obsclass': hdr['obsclass'],
                 'object': hdr['object']
-                }
+            }
 
             element['standard_star'] = [
                 l[k] for k in idx if (
@@ -214,27 +214,28 @@ class pipeline():
         # Based in gprepare.cl
         # Did not account for observation in Nod-and-Shuffle
         for i in associated:
-            header_flat = [k for j, k in enumerate(headers) \
-                if l[j] == i['flat']]
+            header_flat = [
+                k for j, k in enumerate(headers) if l[j] == i['flat']
+            ]
             if len(header_flat):
                 header_flat = header_flat[0]
-                mdfPrefix = "g" + header_flat['instrume'][-1].lower()+"ifu_"
+                mdfPrefix = "g" + header_flat['instrume'][-1].lower() + "ifu_"
                 mdfSufix = ".fits"
                 if header_flat['dettype'] == "S10892":
                     mdfSufix = "_HAM.fits"
-                MaskName =  header_flat['maskname']
+                MaskName = header_flat['maskname']
                 if MaskName == "IFU-2":
-                   mdffile = mdfPrefix + "slits_mdf" + mdfSufix
-                   slits = 'both'
+                    mdffile = mdfPrefix + "slits_mdf" + mdfSufix
+                    slits = 'both'
                 elif MaskName == "IFU-B":
-                   mdffile = mdfPrefix + "slitb_mdf" + mdfSufix
-                   slits = 'blue'
-                elif MaskName == "IFU-R":       
-                   mdffile = mdfPrefix + "slitr_mdf" + mdfSufix
-                   slits = 'red'
+                    mdffile = mdfPrefix + "slitb_mdf" + mdfSufix
+                    slits = 'blue'
+                elif MaskName == "IFU-R":
+                    mdffile = mdfPrefix + "slitr_mdf" + mdfSufix
+                    slits = 'red'
                 else:
-                   mdffile = 'default'
-                   slits = 'default'
+                    mdffile = 'default'
+                    slits = 'default'
                 i['mdffile'] = mdffile
                 i['slits'] = slits
 
@@ -244,15 +245,30 @@ class pipeline():
             ]
 
         # Get star info from starinfo.dat
+        possible_names = np.concatenate((starinfo['obj'], starinfo['std'],
+                                         starinfo['altname']))
+        n_names = len(possible_names)
+
+        for i, j in enumerate(possible_names):
+            possible_names[i] = (j.lower()).replace(' ', '')
+
         for i in std_ims:
             # Removes the 'standard_star' key if the dictionary
             # element in question refers to a standard star.
             del i['standard_star']
+            starname = (i['object'].lower()).replace(' ', '')
 
-            starinfo_idx = [j for j, m in enumerate(starinfo['obj'])
-                            if m == i['object']][0]
-            i['stdstar'] = starinfo[starinfo_idx]['std']
-            i['caldir'] = starinfo[starinfo_idx]['caldir']
+            try:
+                stdstar_idx = (
+                    np.arange(n_names)[possible_names == starname] %
+                    (n_names / 3))[0]
+            except:
+                raise Exception(
+                    'Standard star named {:s} not found in file {:s}'.
+                    format(starname, starinfo_file))
+
+            i['stdstar'] = starinfo[stdstar_idx]['std']
+            i['caldir'] = starinfo[stdstar_idx]['caldir']
 
         self.sci = sci_ims
         self.std = std_ims
