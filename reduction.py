@@ -258,9 +258,9 @@ def apertures(flat, vardq, mdffile, mdfdir, overscan):#, observatory):
     nIter = 0
     while isIterating == True:
         nIter += 1
-        print 80*"-"
-        print "                             APERTURES "
-        print "                            Iteration ", nIter 
+        iraf.printlog(80*"-", 'logfile.log', 'yes')
+        iraf.printlog(29*" " + "APERTURES", 'logfile.log', 'yes')
+        iraf.printlog(28*" " + "Iteration " + str(nIter), 'logfile.log', 'yes')
 
         ### Adicionar 'slits' aos dicionarios das estrelas/galaxias
         ### Usar observatory como input
@@ -281,7 +281,8 @@ def apertures(flat, vardq, mdffile, mdfdir, overscan):#, observatory):
         else: 
             slits = 'default'
             numSlit = 0
-            print "Problem with the mdf filename."
+            iraf.printlog("Problem with the mdf filename.", 'logfile.log', 
+                          'yes')
 
         reidentify_out = 0
         isGood_out = 0
@@ -299,13 +300,13 @@ def apertures(flat, vardq, mdffile, mdfdir, overscan):#, observatory):
             apergFile = 'database/apeprg'+flat+'_'+str(slitNo)
             with open(apergFile, 'r') as f: 
                 lines = f.readlines()
-            aperg_info = np.array([(i.split()[3], i.split()[5]) for i in lines \
+            aperg_info = np.array([(i.split()[3], i.split()[5]) for i in lines\
                              if 'begin' in i], dtype=float)
 
             # Define structured array
-            infoname = ['No', 'center', 'dNo', 'dCenter', 'No_next', 'expected', 
-                'residual', 'where', 'error', 'errType', 'leftShift', 
-                'rightShift']
+            infoname = ['No', 'center', 'dNo', 'dCenter', 'No_next', 
+                'expected', 'residual', 'where', 'error', 'errType', 
+                'leftShift', 'rightShift']
             infofmt = ['int', 'float','int', 'float', 'int','float', 'float', 
                 '|S25', 'bool', '|S25', 'bool', 'bool']
             info = np.zeros(len(aperg_info),  
@@ -316,7 +317,7 @@ def apertures(flat, vardq, mdffile, mdfdir, overscan):#, observatory):
             info['dNo'][:-1] = np.diff(info['No'])
             info['dCenter'][:-1] = np.diff(info['center'])
             info['No_next'][:-1] = aperg_info[1:,0]
-            # Separates apertures from inside of blocks and from the gaps. 
+            # Separates apertures from inside of blocks and from the gaps.
             maskIN = info['dCenter'][:-1] < 2.8*np.median(info['dCenter'][:-1])
             info['where'][:-1] = ['inside' if m==True else 'gap' \
                                    for m in maskIN]
@@ -397,87 +398,114 @@ def apertures(flat, vardq, mdffile, mdfdir, overscan):#, observatory):
                 isGood_out += 1 
                 if isGood_out == numSlit: 
                     isIterating = False
-                    print "\nAPERTURES result: GOOD"
+                    iraf.printlog("\nAPERTURES result: GOOD", 'logfile.log',
+                                  'yes')
             elif resultError:
-                print "\nAPERTURES result: ERROR"
-                print "After 7 iteration, APERTURES didn't fix the problem."
-                print "Repeat identification with default mdf."
+                iraf.printlog("\nAPERTURES result: ERROR", 'logfile.log', 
+                              'yes')
+                iraf.printlog("After 7 iteration, APERTURES didn't fix the" +
+                              "problem.", 'logfile.log', 'yes')
+                iraf.printlog("Repeat identification with default mdf.",
+                              'logfile.log', 'yes')
             elif isFirstShifted:
                 mdf['modify'] = True
                 mdf['reidentify'] = True
-                print "\nAPERTURES result: ERROR"
-                print "First fiber identifyied the bump."
+                iraf.printlog("\nAPERTURES result: ERROR", 'logfile.log',
+                              'yes')
+                iraf.printlog("First fiber identifyied the bump.",
+                              'logfile.log', 'yes')
                 if (mdf['slits'] == 'both') and \
                                     (infoGAP['No'][-1] > infoError['No'][-1]):
                     # Get the last unmasked aperture No. from mdf.
                     mdf['No'] = mdfSlit[mdfSlit['beam'] == 1]['No'][-1]
                     mdf['beam'] = -1
-                    print "Assuming that the last aperture should masked." +\
-                        "(Slits='both')"
-                    print "Mask aperture:", mdf['No']
+                    iraf.printlog("Assuming that the last aperture should" +
+                                  "masked." + "(Slits='both')", 
+                                  'logfile.log', 'yes')
+                    iraf.printlog("Mask aperture:" + str(mdf['No']),
+                                  'logfile.log', 'yes')
                 elif errType[0] == 'dead':
                     mdf['No'] = infoError[0]['No']
                     mdf['beam'] = -1
-                    print "Bad fiber that is unmasked."
-                    print "Mask aperture:", mdf['No']
+                    iraf.printlog("Bad fiber that is unmasked.", 
+                                  'logfile.log', 'yes')
+                    iraf.printlog("Mask aperture:" + str(mdf['No']),
+                                  'logfile.log', 'yes')
                 else:
                     noSolution = True
             else:
                 mdf['reidentify'] = True
                 mdf['modify'] = True
-                print "\nAPERTURES result: ERROR"
+                iraf.printlog("\nAPERTURES result: ERROR", 'logfile.log',
+                              'yes')
                 if isNoneShift:
-                    print "No Shift."
+                    iraf.printlog("No Shift.", 'logfile.log', 'yes')
                     if errType[-1] == 'dead':
                         mdf['No'] = infoError[0]['No_next']
                         mdf['beam'] = -1
-                        print "Bad fiber that is unmasked."
-                        print "Mask aperture:", mdf['No']   
+                        iraf.printlog("Bad fiber that is unmasked.",
+                                      'logfile.log', 'yes')
+                        iraf.printlog("Mask aperture:" + str(mdf['No']),
+                                      'logfile.log', 'yes')
                     else:
                         noSolution = True
                 elif isBothShift:
-                    print "Both shift."
+                    iraf.printlog("Both shift.", 'logfile.log', 'yes')
                     if (errType[0] == errType[-1] == 'dead'):
                         mdf['No'] = infoError[0]['No_next']
                         mdf['beam'] = -1
-                        print "Two bad fibers that are unmasked."
-                        print "Mask aperture", mdf['No']   
+                        iraf.printlog("Two bad fibers that are unmasked.",
+                                      'logfile.log', 'yes')
+                        iraf.printlog("Mask aperture:" + str(mdf['No']),
+                                      'logfile.log', 'yes')  
                     else:
                         noSolution = True
                 else:
                     if isLeftShift:
-                        print "Just left shift."
+                        iraf.printlog("Just left shift.", 'logfile.log', 'yes')
                         if (mdf['slits'] == 'both') and \
                                     (infoGAP['No'][-1] > infoError['No'][-1]):
                             # Get the last unmasked aperture No. from mdf.
                             mdf['No'] = mdfSlit[mdfSlit['beam'] == 1]['No'][-1]
                             mdf['beam'] = -1
-                            print "Assuming that the last aperture should"+\
-                                  "masked. (Slits=both)"
-                            print "Mask aperture:", mdf['No']
+                            iraf.printlog("Assuming that the last aperture" +
+                                          "should masked. (Slits=both)",
+                                          'logfile.log', 'yes')
+                            iraf.printlog("Mask aperture:" + str(mdf['No']),
+                                          'logfile.log', 'yes')
                         elif errType[0] == 'good':
                             mdf['No'] = infoError[0]['No']+1
                             mdf['beam'] = 1
-                            print "Good fiber that is masked."
-                            print "Unmask aperture:", mdf['No']   
+                            iraf.printlog("Good fiber that is masked.",
+                                          'logfile.log', 'yes')
+                            iraf.printlog("Unmask aperture:" + str(mdf['No']),
+                                          'logfile.log', 'yes')
                         elif errType[-1] == 'dead':
-                            print "Bad fiber that is unmasked."
+                            iraf.printlog("Bad fiber that is unmasked.",
+                                          'logfile.log', 'yes')
                             mdf['beam'] = -1
                             if infoError[-1]['No_next'] in infoGAP['No']:
                                 mdf['No'] = infoError[-1]['No_next']
-                                print "Mask aperture:", mdf['No']   
+                                iraf.printlog("Mask aperture:" + 
+                                              str(mdf['No']), 'logfile.log',
+                                              'yes')  
                             else:
                                 mdf['No'] = infoError[-1]['No']
-                                print "Mask aperture:", mdf['No']
+                                iraf.printlog("Mask aperture:" + 
+                                              str(mdf['No']), 'logfile.log',
+                                              'yes')
                         else:
                             noSolution = True
                     elif isRightShift:
-                        print "Just right shift."
+                        iraf.printlog("Just right shift.", 'logfile.log',
+                                      'yes')
                         if errType[0] == 'dead':
                             mdf['No'] = infoError[0]['No_next']
                             mdf['beam'] = -1
-                            print "Bad fiber that is unmasked."
-                            print "Mask aperture:", mdf['No']
+                            iraf.printlog("Bad fiber that is unmasked.",
+                                          'logfile.log', 'yes')
+                            iraf.printlog("Mask aperture:" + str(mdf['No']),
+                                          'logfile.log', 'yes')
                         else:
                             noSolution = True
                     else:
@@ -486,13 +514,16 @@ def apertures(flat, vardq, mdffile, mdfdir, overscan):#, observatory):
 
             # No solution message
             if noSolution:
-                print "\nAPERTURES result: ERROR"
-                print "No solution was found."
-                print "Repeat identification with default mdf."
-                #print "Running GFEXTRACT in interctive mode."
+                iraf.printlog("\nAPERTURES result: ERROR", 'logfile.log',
+                              'yes')
+                iraf.printlog("No solution was found.", 'logfile.log', 'yes')
+                iraf.printlog("Repeat identification with default mdf.",
+                              'logfile.log', 'yes')
+                #iraf.printlog("Running GFEXTRACT in interctive mode.",
+                #              'logfile.log', 'yes')
                 #mdf['interactive'] = True
 
-            # Repeat identification with default mdf if restulted in error or
+            # Repeat identification with default mdf if resulted in error or
             # no solution was found.
             if noSolution or resultError:
                 isIterating = False
