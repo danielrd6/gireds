@@ -17,9 +17,10 @@ from pyraf import iraf
 # import pyfits as pf
 from reduction import cal_reduction
 
+
 def reduce_science(rawdir, rundir, flat, arc, twilight, sciimg,
-        starimg, bias, overscan, vardq, observatory, lacos, apply_lacos,
-        lacos_xorder, lacos_yorder, bpm, mdffile):
+                   starimg, bias, overscan, vardq, observatory, lacos,
+                   apply_lacos, lacos_xorder, lacos_yorder, bpm, mdffile):
     """
     Reduction pipeline for standard star.
 
@@ -75,8 +76,8 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, sciimg,
     arc = arc.strip('.fits')
     starimg = starimg.strip('.fits')
     sciimg = sciimg.strip('.fits')
-    iraf.gfreduce.bias = 'caldir$'+bias
-    iraf.gireduce.bpm = 'rawdir$'+bpm
+    iraf.gfreduce.bias = 'caldir$' + bias
+    iraf.gireduce.bpm = 'rawdir$' + bpm
     mdfdir = 'gmos$data/'
 
     mdfdir = cal_reduction(
@@ -96,10 +97,10 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, sciimg,
     prefix = 'rg'
 
     # Gemfix
-    iraf.gemfix(prefix+sciimg, out='p'+prefix+sciimg, method='fixpix', 
-         bitmask=1)
-    prefix = 'p'+prefix
-    
+    iraf.gemfix(prefix + sciimg, out='p' + prefix + sciimg, method='fixpix',
+                bitmask=1)
+    prefix = 'p' + prefix
+
     if apply_lacos:
         iraf.gemcrspec(
             prefix + sciimg, out='l' + prefix + sciimg, sigfrac=0.32,

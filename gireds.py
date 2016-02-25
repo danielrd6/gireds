@@ -127,7 +127,7 @@ class pipeline():
                 'mjd': mjd, 'grating': hdr['grating'],
                 'filter1': hdr['filter1'], 'obsclass': hdr['obsclass'],
                 'object': hdr['object']
-                }
+            }
 
             element['standard_star'] = [
                 l[k] for k in idx if (
@@ -214,29 +214,30 @@ class pipeline():
         # Based in gprepare.cl
         # Did not account for observation in Nod-and-Shuffle
         for i in associated:
-            header_flat = [k for j, k in enumerate(headers) \
-                if l[j] == i['flat']]
+            header_flat = [
+                k for j, k in enumerate(headers) if l[j] == i['flat']
+            ]
             if len(header_flat):
                 header_flat = header_flat[0]
-                mdfPrefix = "g" + header_flat['instrume'][-1].lower()+"ifu_"
+                mdfPrefix = "g" + header_flat['instrume'][-1].lower() + "ifu_"
                 mdfSufix = ".fits"
                 if header_flat['dettype'] == "S10892":
                     mdfSufix = "_HAM.fits"
-                MaskName =  header_flat['maskname']
+                MaskName = header_flat['maskname']
                 if MaskName == "IFU-2":
-                   mdffile = mdfPrefix + "slits_mdf" + mdfSufix
+                    mdffile = mdfPrefix + "slits_mdf" + mdfSufix
                 elif MaskName == "IFU-B":
-                   mdffile = mdfPrefix + "slitb_mdf" + mdfSufix
-                elif MaskName == "IFU-R":       
-                   mdffile = mdfPrefix + "slitr_mdf" + mdfSufix
+                    mdffile = mdfPrefix + "slitb_mdf" + mdfSufix
+                elif MaskName == "IFU-R":
+                    mdffile = mdfPrefix + "slitr_mdf" + mdfSufix
                 else:
-                   mdffile = 'default'
+                    mdffile = 'default'
                 i['mdffile'] = mdffile
 
         sci_ims = [i for i in associated if i['obsclass'] == 'science']
         std_ims = [
             i for i in associated if i['obsclass'] in ['partnerCal', 'progCal']
-            ]
+        ]
 
         # Get star info from starinfo.dat
         for i in std_ims:
