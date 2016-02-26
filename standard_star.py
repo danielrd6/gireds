@@ -61,7 +61,7 @@ def circular_aperture(image, radius=1):
 def reduce_stdstar(
         rawdir, rundir, caldir, starobj, stdstar, flat, arc, twilight,
         starimg, bias, overscan, vardq, lacos, observatory, apply_lacos,
-        lacos_xorder, lacos_yorder, bpm, instrument, mdffile):
+        lacos_xorder, lacos_yorder, bpm, instrument, mdffile, slits):
     """
     Reduction pipeline for standard star.
 
@@ -120,13 +120,13 @@ def reduce_stdstar(
     arc = arc.strip('.fits')
     starimg = starimg.strip('.fits')
 
-    iraf.gfreduce.bias = 'rawdir$' + bias
-    iraf.gireduce.bpm = 'rawdir$' + bpm
-    mdfdir = 'gmos$data/'
+    iraf.gfreduce.bias = 'rawdir$'+bias
+    iraf.gireduce.bpm = 'rawdir$'+bpm
 
     cal_reduction(
         rawdir=rawdir, rundir=rundir, flat=flat, arc=arc, twilight=twilight,
-        bias=bias, bpm=bpm, overscan=overscan, vardq=vardq, mdfdir=mdfdir)
+        bias=bias, bpm=bpm, overscan=overscan, vardq=vardq, mdffile=mdffile,
+        instrument=instrument, slits=slits)
     #
     #   Actually reduce star
     #
@@ -136,7 +136,8 @@ def reduce_stdstar(
         fl_over=overscan, fl_trim='yes', fl_bias='yes', trace='no',
         recenter='no',
         fl_flux='no', fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
-        fl_wavtran='no', fl_novl='yes', fl_skysub='no', fl_vardq=vardq)
+        fl_wavtran='no', fl_novl='yes', fl_skysub='no', fl_vardq=vardq,
+        mdfdir='procdir$')
     prefix = 'rg'
 
     # Gemfix
