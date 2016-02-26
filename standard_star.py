@@ -93,9 +93,15 @@ def reduce_stdstar(
     iraf.set(stdimage='imtgmos')
 
     iraf.task(lacos_spec=lacos)
+
     iraf.gemini()
+    iraf.unlearn('gemini')
+
     iraf.gmos()
+    iraf.unlearn('gmos')
+
     iraf.gemtools()
+    iraf.unlearn('gemtools')
 
     iraf.gmos.logfile = 'logfile.log'
     iraf.gemtools.gloginit.logfile = 'logfile.log'
@@ -106,9 +112,6 @@ def reduce_stdstar(
     iraf.set(procdir=rundir)  # processed files
 
     # os.path.isfile('arquivo')
-
-    iraf.unlearn('gemini')
-    iraf.unlearn('gmos')
 
     iraf.cd('procdir')
 

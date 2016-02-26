@@ -38,11 +38,13 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
     iraf.set(stdimage='imtgmos')
 
     iraf.gemini()
-    iraf.gemtools()
-    iraf.gmos()
-
     iraf.unlearn('gemini')
+
+    iraf.gmos()
     iraf.unlearn('gmos')
+
+    iraf.gemtools()
+    iraf.unlearn('gemtools')
 
     # set directories
     iraf.set(rawdir=rawdir)  # raw files

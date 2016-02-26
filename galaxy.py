@@ -52,8 +52,13 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, sciimg,
     iraf.set(stdimage='imtgmos')
 
     iraf.gemini()
-    iraf.gemtools()
+    iraf.unlearn('gemini')
+
     iraf.gmos()
+    iraf.unlearn('gmos')
+
+    iraf.gemtools()
+    iraf.unlearn('gemtools')
 
     # os.path.isfile('arquivo')
 
