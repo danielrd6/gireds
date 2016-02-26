@@ -248,7 +248,7 @@ class pipeline():
         sci_ims = [i for i in associated if i['obsclass'] == 'science']
         std_ims = [
             i for i in associated if i['obsclass'] in ['partnerCal', 'progCal']
-            ]
+        ]
 
         # Get star info from starinfo.dat
         possible_names = np.concatenate((starinfo['obj'], starinfo['std'],
@@ -309,7 +309,7 @@ class pipeline():
             observatory=dic['observatory'], apply_lacos=self.apply_lacos,
             lacos_xorder=self.cfg.getint('reduction', 'lacos_xorder'),
             lacos_yorder=self.cfg.getint('reduction', 'lacos_yorder'),
-            bpm=dic['bpm'], mdffile=dic['mdffile'], slits=dic['slits'], 
+            bpm=dic['bpm'], mdffile=dic['mdffile'], slits=dic['slits'],
             instrument=dic['instrument'])
 
 
