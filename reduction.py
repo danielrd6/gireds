@@ -88,10 +88,8 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
 
     # copy mdf used by flat
     if os.path.isfile(mdffile):
-        iraf.imdelete('procdir$' + mdffile)
-    iraf.cd('gmos$data/')
-    mdfFits = pf.open(mdffile)
-    iraf.cd('procdir')
+        iraf.imdelete(mdffile)
+    mdfFits = pf.open(iraf.show('gemini', Stdout=1)[0] + 'gmos/data/' + mdffile)
 
     nsciext = pf.getval('prg'+flat+'.fits', ext=0, keyword='nsciext')
     mdfFlatData = pf.getdata('prg'+flat+'.fits', ext=nsciext+1)
