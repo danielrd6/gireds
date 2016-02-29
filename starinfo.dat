@@ -21,6 +21,7 @@ LTT9491 l9491 onedstds$ctionewcal/ -
 BD284211 bd284211 onedstds$spec50cal/ -
 CygOB2No9 cygob2no9 onedstds$spec50cal/ -
 EG81 eg81 onedstds$spec50cal/ -
+EG131 eg131 gemini$gmos/calib/ -
 Feige110 feige110 onedstds$spec50cal/ eg158
 Feige34 feige34 onedstds$spec50cal/ eg71
 Feige66 feige66 onedstds$spec50cal/ -
