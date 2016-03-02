@@ -9,6 +9,50 @@ import os
 import subprocess
 
 
+def plot_apertures(image):
+    """
+    Plots the aperture numbers of an already identified image.
+
+    Parameters
+    ----------
+    image: string
+        Name of the FLAT image without any prefixes.
+        For instance N20130504S0244.fits
+
+    Returns
+    -------
+    Nothing.
+    """
+
+    hdu = pf.open('prg' + image)
+    apfile = './database/apeprg' + image.strip('.fits') + '_1'
+
+    b = np.array(
+        [i.split()[3:] for i in open(apfile).readlines() if 'begin' in i])
+
+    apid = b[:, 0]
+    x = np.array([float(i) for i in b[:, 2]])
+
+    sci_exts = np.array([i for i in range(len(hdu)) if hdu[i].name == 'SCI'])
+    data = hdu[sci_exts[len(sci_exts)/2]].data
+
+    profile = np.average(data, 1)
+
+    fig = plt.figure(1)
+    ax = fig.add_subplot(111)
+
+    pmax = profile.max()
+
+    ax.plot(np.arange(len(profile))+1, profile/pmax)
+    ax.set_ylim(0, 1.1)
+
+    for i, j in enumerate(apid):
+        ax.annotate(j, xy=(x[i], 1), ha='center')
+        ax.axvline(x[i], alpha=.3)
+
+    plt.show()
+
+
 def plot_summary(cube_file, savefigs=True, img_format='pdf'):
     """
     Saves a figure for each cube, with average spectra and image.
