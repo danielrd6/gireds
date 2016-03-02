@@ -6,9 +6,10 @@ import pyfits as pf
 import glob
 import sys
 import os
+import subprocess
 
 
-def plot_summary(cube_file, savefigs=True):
+def plot_summary(cube_file, savefigs=True, img_format='pdf'):
     """
     Saves a figure for each cube, with average spectra and image.
     """
@@ -39,11 +40,11 @@ def plot_summary(cube_file, savefigs=True):
 
     if savefigs:
         plt.savefig(
-            cube_file.strip('.fits') + '.png', format='png',
+            cube_file.strip('.fits') + '.' + img_format, format=img_format,
             bbox_inches='tight')
 
 
-def plot_all(products_dir):
+def plot_all(products_dir, img_format='pdf'):
 
     l = glob.glob(products_dir + 'd*fits')
     l.sort()
@@ -52,9 +53,9 @@ def plot_all(products_dir):
         plot_summary(i, savefigs=True)
 
 
-def build_latex(products_dir):
+def build_latex(products_dir, img_format='pdf'):
 
-    l = glob.glob(products_dir + 'd*png')
+    l = glob.glob(products_dir + 'd*' + img_format)
     l.sort()
 
     os.chdir(products_dir)
@@ -75,8 +76,10 @@ def build_latex(products_dir):
     latex.write(r'\end{document}')
     latex.close()
 
+    subprocess.call(['pdflatex', 'summary.tex'])
+
 
 if __name__ == '__main__':
 
-    plot_all(sys.argv[1])
-    build_latex(sys.argv[1])
+    plot_all(sys.argv[1], img_format='pdf')
+    build_latex(sys.argv[1], img_format='pdf')
