@@ -78,5 +78,5 @@ def build_latex(products_dir):
 
 if __name__ == '__main__':
 
-    plot_all(sys.argv[1])
+    # plot_all(sys.argv[1])
     build_latex(sys.argv[1])
