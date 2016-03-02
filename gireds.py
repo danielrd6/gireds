@@ -364,7 +364,14 @@ if __name__ == "__main__":
                     logfile=logfile, verbose='yes')
                 continue
             else:
-                pip.stdstar(star)
+                try:
+                    pip.stdstar(star)
+                except:
+                    iraf.printlog(
+                        'ERROR! An error ocurred when trying to reduce'
+                        'the standard star {:s}. Check logfile for more'
+                        'information.'.format(star),
+                        logfile=logfile, verbose='yes')
 
     if (pip.reduction_step == 2) or\
             ((pip.single_step is False) and (pip.reduction_step >= 2)):
@@ -398,4 +405,11 @@ if __name__ == "__main__":
                     logfile=logfile, verbose='yes')
                 continue
             else:
-                pip.science(sci)
+                try:
+                    pip.science(sci)
+                except:
+                    iraf.printlog(
+                        'ERROR! An error ocurred when trying to reduce'
+                        'the galaxy {:s}. Check logfile for more'
+                        'information.'.format(sci),
+                        logfile=logfile, verbose='yes')
