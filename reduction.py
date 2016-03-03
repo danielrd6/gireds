@@ -247,7 +247,7 @@ def apertures(flat, vardq, mdffile, overscan, instrument, slits):
     resultError = False
     noSolution = False
     nIter = 0
-    while isIterating is True:
+    while isIterating:
         nIter += 1
         iraf.printlog(80 * "-", 'logfile.log', 'yes')
         iraf.printlog(29 * " " + "APERTURES", 'logfile.log', 'yes')
@@ -297,8 +297,7 @@ def apertures(flat, vardq, mdffile, overscan, instrument, slits):
             # Separates apertures from inside of blocks and from the gaps.
             maskIN = info['dCenter'][
                 :-1] < 2.8 * np.median(info['dCenter'][:-1])
-            info['where'][:-1] = ['inside' if m is True else 'gap'
-                                  for m in maskIN]
+            info['where'][:-1] = ['inside' if m else 'gap' for m in maskIN]
 
             # Median values
             # Talvez fazer ele soh pegar valores sem muito desvio, para nao
