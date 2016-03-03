@@ -247,7 +247,7 @@ def apertures(flat, vardq, mdffile, overscan, instrument, slits):
     resultError = False
     noSolution = False
     nIter = 0
-    while isIterating is True:
+    while isIterating == True:
         nIter += 1
         iraf.printlog(80 * "-", 'logfile.log', 'yes')
         iraf.printlog(29 * " " + "APERTURES", 'logfile.log', 'yes')
@@ -297,7 +297,7 @@ def apertures(flat, vardq, mdffile, overscan, instrument, slits):
             # Separates apertures from inside of blocks and from the gaps.
             maskIN = info['dCenter'][
                 :-1] < 2.8 * np.median(info['dCenter'][:-1])
-            info['where'][:-1] = ['inside' if m is True else 'gap'
+            info['where'][:-1] = ['inside' if m == True else 'gap'
                                   for m in maskIN]
 
             # Median values
@@ -350,14 +350,15 @@ def apertures(flat, vardq, mdffile, overscan, instrument, slits):
                     i['errType'] = 'dead'  # 'dead_but_unmasked'
 
             # Tests
-            isGood = not len(infoError)
             isLeftShift = len(leftShift)
             isRightShift = len(rightShift)
             isNoneShift = not(isLeftShift or isRightShift)
             isBothShift = isLeftShift and isRightShift
+            isGood = (not len(infoError)) and isNoneShift
             # Unnusual values in gaps
-            if all([i in infoGAP['No'] for i in infoError['No']]):
-                isGood = True
+            if all([i in infoGAP['No'] for i in infoError['No']]) and \
+                    isNoneShift:
+                isGood=True
             # Stop iteration if iteration limit was achieved.
             if (not(isGood) and nIter == 7):
                 resultError = True
@@ -557,5 +558,3 @@ def apertures(flat, vardq, mdffile, overscan, instrument, slits):
                 t_order=4, fl_flux='no', fl_gscrrej='no', fl_extract='yes',
                 fl_gsappwave='no', fl_wavtran='no', fl_novl='no',
                 fl_skysub='no', reference='', recenter='yes', fl_vardq=vardq)
-
-    return
