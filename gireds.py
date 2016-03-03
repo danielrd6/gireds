@@ -10,12 +10,6 @@ from standard_star import reduce_stdstar
 from galaxy import reduce_science
 from pyraf import iraf
 
-iraf.gemini()
-iraf.unlearn('gemini')
-
-iraf.gemtools()
-iraf.unlearn('gemtools')
-
 
 def closest_in_time(images, target):
     """
@@ -313,103 +307,138 @@ class pipeline():
             instrument=dic['instrument'])
 
 
+def filecheck(dic, cat):
+
+    for img in dic:
+
+        cal = np.array([True if img[i] != '' else False for i in cat])
+
+        if not cal.all():
+            print(
+                ('{:20s} {:s}: missing ' + len(cal[~cal]) * '{:s} ')
+                .format(img['object'], img['image'], *cat[~cal]))
+        else:
+            print('{:20s} {:s}: OK'.format(img['object'], img['image']))
+
+
 if __name__ == "__main__":
     import sys
 
-    pip = pipeline(sys.argv[1])
-    logfile = pip.run_dir + '/logfile.log'
-    iraf.printlog('##################################################\n'
-                  '# GIREDS (Gmos Ifu REDuction Suite)              #\n'
-                  '##################################################\n'
-                  'Starting reduction at: {:s}\n'.format(time.asctime()),
-                  logfile=logfile, verbose='yes')
+    if sys.argv[1] == '-c':
 
-    if (pip.reduction_step == 0) or\
-            ((pip.single_step is False) and (pip.reduction_step >= 0)):
-
-        iraf.printlog('Starting reduction step 0\n'
-                      'on directory {:s}\n'.format(pip.raw_dir),
-                      logfile=logfile, verbose='yes')
-
+        pip = pipeline(sys.argv[2])
+        pip.dry_run = True
         pip.associate_files()
-
-    if (pip.reduction_step == 1) or\
-            ((pip.single_step is False) and (pip.reduction_step >= 1)):
-
-        os.chdir(pip.run_dir)
-        iraf.printlog('Starting reduction step 1\n'
-                      'on directory {:s}\n'.format(os.getcwd()),
-                      logfile=logfile, verbose='yes')
-
-        r = file('file_associations_sci.dat', 'r').read()
-        pip.sci = eval(r)
-        r = file('file_associations_std.dat', 'r').read()
-        pip.std = eval(r)
 
         cal_categories = np.array(['bias', 'flat', 'twilight', 'arc'])
 
-        for star in pip.std:
-
-            cal = np.array([
-                True if star[i] != '' else False for i in cal_categories])
-
-            if not cal.all():
-                iraf.printlog(
-                    ('ERROR! Image {:s} does not have all the necessary'
-                     'calibration files: ' + len(cal[~cal]) * '{:s} ')
-                    .format(star['image'], *cal_categories[~cal]),
-                    logfile=logfile, verbose='yes')
-                iraf.printlog(
-                    'Skipping image {:s}.'.format(star['image']),
-                    logfile=logfile, verbose='yes')
-                continue
-            else:
-                try:
-                    pip.stdstar(star)
-                except:
-                    iraf.printlog(
-                        'ERROR! An error ocurred when trying to reduce'
-                        'the standard star {:s}. Check logfile for more'
-                        'information.'.format(star),
-                        logfile=logfile, verbose='yes')
-
-    if (pip.reduction_step == 2) or\
-            ((pip.single_step is False) and (pip.reduction_step >= 2)):
-
-        os.chdir(pip.run_dir)
-        iraf.printlog(
-            'Starting reduction step 2 on directory {:s}\n'
-            .format(os.getcwd()), logfile=logfile, verbose='yes')
-
-        r = file('file_associations_sci.dat', 'r').read()
-        pip.sci = eval(r)
-        r = file('file_associations_std.dat', 'r').read()
-        pip.std = eval(r)
+        filecheck(pip.std, cal_categories)
 
         cal_categories = np.array([
             'bias', 'flat', 'twilight', 'arc', 'standard_star'])
 
-        for sci in pip.sci:
+        filecheck(pip.sci, cal_categories)
 
-            cal = np.array([
-                True if sci[i] != '' else False for i in cal_categories])
+    else:
+        iraf.gemini()
+        iraf.unlearn('gemini')
 
-            if not cal.all():
-                iraf.printlog(
-                    ('ERROR! Image {:s} does not have all the necessary\n'
-                     'calibration files: ' + len(cal[~cal]) * '{:s} ')
-                    .format(sci['image'], *cal_categories[~cal]),
-                    logfile=logfile, verbose='yes')
-                iraf.printlog(
-                    'Skipping image {:s}.'.format(sci['image']),
-                    logfile=logfile, verbose='yes')
-                continue
-            else:
-                try:
-                    pip.science(sci)
-                except:
+        iraf.gemtools()
+        iraf.unlearn('gemtools')
+        pip = pipeline(sys.argv[1])
+        logfile = pip.run_dir + '/logfile.log'
+        iraf.printlog('##################################################\n'
+                      '# GIREDS (Gmos Ifu REDuction Suite)              #\n'
+                      '##################################################\n'
+                      'Starting reduction at: {:s}\n'.format(time.asctime()),
+                      logfile=logfile, verbose='yes')
+
+        if (pip.reduction_step == 0) or\
+                ((pip.single_step is False) and (pip.reduction_step >= 0)):
+
+            iraf.printlog('Starting reduction step 0\n'
+                          'on directory {:s}\n'.format(pip.raw_dir),
+                          logfile=logfile, verbose='yes')
+
+            pip.associate_files()
+
+        if (pip.reduction_step == 1) or\
+                ((pip.single_step is False) and (pip.reduction_step >= 1)):
+
+            os.chdir(pip.run_dir)
+            iraf.printlog('Starting reduction step 1\n'
+                          'on directory {:s}\n'.format(os.getcwd()),
+                          logfile=logfile, verbose='yes')
+
+            r = file('file_associations_sci.dat', 'r').read()
+            pip.sci = eval(r)
+            r = file('file_associations_std.dat', 'r').read()
+            pip.std = eval(r)
+
+            cal_categories = np.array(['bias', 'flat', 'twilight', 'arc'])
+
+            for star in pip.std:
+
+                cal = np.array([
+                    True if star[i] != '' else False for i in cal_categories])
+
+                if not cal.all():
                     iraf.printlog(
-                        'ERROR! An error ocurred when trying to reduce'
-                        'the galaxy {:s}. Check logfile for more'
-                        'information.'.format(sci),
+                        ('ERROR! Image {:s} does not have all the necessary'
+                         'calibration files: ' + len(cal[~cal]) * '{:s} ')
+                        .format(star['image'], *cal_categories[~cal]),
                         logfile=logfile, verbose='yes')
+                    iraf.printlog(
+                        'Skipping image {:s}.'.format(star['image']),
+                        logfile=logfile, verbose='yes')
+                    continue
+                else:
+                    try:
+                        pip.stdstar(star)
+                    except:
+                        iraf.printlog(
+                            'ERROR! An error ocurred when trying to reduce'
+                            'the standard star {:s}. Check logfile for more'
+                            'information.'.format(star),
+                            logfile=logfile, verbose='yes')
+
+        if (pip.reduction_step == 2) or\
+                ((pip.single_step is False) and (pip.reduction_step >= 2)):
+
+            os.chdir(pip.run_dir)
+            iraf.printlog(
+                'Starting reduction step 2 on directory {:s}\n'
+                .format(os.getcwd()), logfile=logfile, verbose='yes')
+
+            r = file('file_associations_sci.dat', 'r').read()
+            pip.sci = eval(r)
+            r = file('file_associations_std.dat', 'r').read()
+            pip.std = eval(r)
+
+            cal_categories = np.array([
+                'bias', 'flat', 'twilight', 'arc', 'standard_star'])
+
+            for sci in pip.sci:
+
+                cal = np.array([
+                    True if sci[i] != '' else False for i in cal_categories])
+
+                if not cal.all():
+                    iraf.printlog(
+                        ('ERROR! Image {:s} does not have all the necessary\n'
+                         'calibration files: ' + len(cal[~cal]) * '{:s} ')
+                        .format(sci['image'], *cal_categories[~cal]),
+                        logfile=logfile, verbose='yes')
+                    iraf.printlog(
+                        'Skipping image {:s}.'.format(sci['image']),
+                        logfile=logfile, verbose='yes')
+                    continue
+                else:
+                    try:
+                        pip.science(sci)
+                    except:
+                        iraf.printlog(
+                            'ERROR! An error ocurred when trying to reduce'
+                            'the galaxy {:s}. Check logfile for more'
+                            'information.'.format(sci),
+                            logfile=logfile, verbose='yes')
