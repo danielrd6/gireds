@@ -54,6 +54,8 @@ class pipeline():
         self.raw_dir = config.get('main', 'raw_dir')
         self.products_dir = config.get('main', 'products_dir')
 
+        self.all_stars = config.getboolean('associations', 'all_stars')
+
         if (self.single_step and (self.reduction_step != 0)):
             self.run_dir = config.get('main', 'run_dir')
         else:
@@ -240,9 +242,14 @@ class pipeline():
                 i['slits'] = slits
 
         sci_ims = [i for i in associated if i['obsclass'] == 'science']
-        std_ims = [
-            i for i in associated if i['obsclass'] in ['partnerCal', 'progCal']
-        ]
+
+        if self.all_stars:
+            std_ims = [
+                i for i in associated if i['obsclass'] in ['partnerCal',
+                                                           'progCal']]
+        else:
+            used_stds = [i['standard_star'] for i in sci_ims]
+            std_ims = [i for i in associated if i['image'] in used_stds]
 
         # Get star info from starinfo.dat
         possible_names = np.concatenate((starinfo['obj'], starinfo['std'],
