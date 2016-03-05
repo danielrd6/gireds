@@ -3,12 +3,12 @@ import json
 import sys
 
 
-def query_archive(query, qastate='Win/'):
+def query_archive(query):
     # Construct the URL. We'll use the jsonsummary service
     url = 'https://archive.gemini.edu/jsonsummary/canonical/'
     
     # List the OBJECT files taken with GMOS-N on 2010-12-31
-    url += qastate + '/' + query
+    url += query
     
     # Open the URL and fetch the JSON document text into a string
     u = urllib.urlopen(url)
@@ -21,19 +21,23 @@ def query_archive(query, qastate='Win/'):
     # This is a list of dictionaries each containing info about a file
     total_data_size = 0
     print(
-        '{:22s}{:12s}{:12s}{:12s}{:16s}{:8s}{:>10s}'.format(
+        '{:30s}{:12s}{:12s}{:12s}{:16s}{:8s}{:>10s}'.format(
             'Filename', 'Obs. Class', 'Obs. Type', 'Qa state',
             'Object Name', 'CWL (nm)', 'Disperser'))
     
     for f in files:
-        f['central_wavelength'] *= 1e+3
+        if f['central_wavelength'] is None:
+            f['central_wavelength'] = 0
+        else:
+            f['central_wavelength'] *= 1e+3
+
         fields = [
             f['name'], f['observation_class'], f['observation_type'],
             f['qa_state'],  f['object'], f['central_wavelength'],
             f['disperser']]
         
         total_data_size += f['data_size']
-        print('{:22s}{:12s}{:12s}{:12s}{:16s}{:8.0f}{:>10s}'.format(*fields))
+        print('{:30s}{:12s}{:12s}{:12s}{:16s}{:8.0f}{:>10s}'.format(*fields))
     
     print 'Total data size: %d' % total_data_size
 

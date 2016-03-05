@@ -62,21 +62,7 @@ class pipeline():
             self.run_dir = self.products_dir\
                 + time.strftime('%Y-%m-%dT%H:%M:%S')
 
-        if not self.dry_run:
-            try:
-                os.mkdir(self.products_dir)
-            except OSError as err:
-                if err.errno == 17:
-                    pass
-                else:
-                    raise err
-            try:
-                os.mkdir(self.run_dir)
-            except OSError as err:
-                if err.errno == 17:
-                    pass
-                else:
-                    raise err
+
 
     # @profile
     def associate_files(self):
@@ -97,7 +83,7 @@ class pipeline():
                 linelist = arq.readline().split()
                 for j in range(len(infoname)):
                     starinfo[i][j] = linelist[j]
-
+        
         os.chdir(self.raw_dir)
 
         l = glob.glob('*.fits')
@@ -282,6 +268,23 @@ class pipeline():
 
         # Writes the file association dictionary to an ASCII file
         # in the run directory.
+
+        if not self.dry_run:
+            try:
+                os.mkdir(self.products_dir)
+            except OSError as err:
+                if err.errno == 17:
+                    pass
+                else:
+                    raise err
+            try:
+                os.mkdir(self.run_dir)
+            except OSError as err:
+                if err.errno == 17:
+                    pass
+                else:
+                    raise err
+
         if not self.dry_run:
             os.chdir(self.run_dir)
             file('file_associations_sci.dat', 'w').write(repr(sci_ims))
