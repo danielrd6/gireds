@@ -403,10 +403,12 @@ if __name__ == "__main__":
                 else:
                     try:
                         pip.stdstar(star)
-                    except:
+                    except Exception as err:
                         iraf.printlog(
-                            'ERROR! An error ocurred when trying to reduce'
-                            'the standard star {:s}. Check logfile for more'
+                            err.__repr__(), logfile=logfile, verbose='yes')
+                        iraf.printlog(
+                            'ERROR! An error ocurred when trying to reduce '
+                            'the standard star {:s}. Check logfile for more '
                             'information.'.format(star),
                             logfile=logfile, verbose='yes')
 
@@ -444,9 +446,11 @@ if __name__ == "__main__":
                 else:
                     try:
                         pip.science(sci)
-                    except:
+                    except Exception as err:
                         iraf.printlog(
-                            'ERROR! An error ocurred when trying to reduce'
-                            'the galaxy {:s}. Check logfile for more'
+                            err.__repr__(), logfile=logfile, verbose='yes')
+                        iraf.printlog(
+                            'ERROR! An error ocurred when trying to reduce '
+                            'the galaxy {:s}. Check logfile for more '
                             'information.'.format(sci),
                             logfile=logfile, verbose='yes')
