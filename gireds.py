@@ -357,18 +357,16 @@ if __name__ == "__main__":
         iraf.unlearn('gemtools')
         pip = pipeline(sys.argv[1])
         logfile = pip.run_dir + '/logfile.log'
-        iraf.printlog('##################################################\n'
-                      '# GIREDS (Gmos Ifu REDuction Suite)              #\n'
-                      '##################################################\n'
-                      'Starting reduction at: {:s}\n'.format(time.asctime()),
-                      logfile=logfile, verbose='yes')
+        print('##################################################\n'
+              '# GIREDS (Gmos Ifu REDuction Suite)              #\n'
+              '##################################################\n'
+              'Starting reduction at: {:s}\n'.format(time.asctime()))
 
         if (pip.reduction_step == 0) or\
                 ((pip.single_step is False) and (pip.reduction_step >= 0)):
 
-            iraf.printlog('Starting reduction step 0\n'
-                          'on directory {:s}\n'.format(pip.raw_dir),
-                          logfile=logfile, verbose='yes')
+            print('Starting reduction step 0\n'
+                  'on directory {:s}\n'.format(pip.raw_dir))
 
             pip.associate_files()
 
