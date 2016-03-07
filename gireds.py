@@ -62,21 +62,7 @@ class pipeline():
             self.run_dir = self.products_dir\
                 + time.strftime('%Y-%m-%dT%H:%M:%S')
 
-        if not self.dry_run:
-            try:
-                os.mkdir(self.products_dir)
-            except OSError as err:
-                if err.errno == 17:
-                    pass
-                else:
-                    raise err
-            try:
-                os.mkdir(self.run_dir)
-            except OSError as err:
-                if err.errno == 17:
-                    pass
-                else:
-                    raise err
+
 
     # @profile
     def associate_files(self):
@@ -97,7 +83,7 @@ class pipeline():
                 linelist = arq.readline().split()
                 for j in range(len(infoname)):
                     starinfo[i][j] = linelist[j]
-
+        
         os.chdir(self.raw_dir)
 
         l = glob.glob('*.fits')
@@ -282,6 +268,23 @@ class pipeline():
 
         # Writes the file association dictionary to an ASCII file
         # in the run directory.
+
+        if not self.dry_run:
+            try:
+                os.mkdir(self.products_dir)
+            except OSError as err:
+                if err.errno == 17:
+                    pass
+                else:
+                    raise err
+            try:
+                os.mkdir(self.run_dir)
+            except OSError as err:
+                if err.errno == 17:
+                    pass
+                else:
+                    raise err
+
         if not self.dry_run:
             os.chdir(self.run_dir)
             file('file_associations_sci.dat', 'w').write(repr(sci_ims))
@@ -354,18 +357,16 @@ if __name__ == "__main__":
         iraf.unlearn('gemtools')
         pip = pipeline(sys.argv[1])
         logfile = pip.run_dir + '/logfile.log'
-        iraf.printlog('##################################################\n'
-                      '# GIREDS (Gmos Ifu REDuction Suite)              #\n'
-                      '##################################################\n'
-                      'Starting reduction at: {:s}\n'.format(time.asctime()),
-                      logfile=logfile, verbose='yes')
+        print('##################################################\n'
+              '# GIREDS (Gmos Ifu REDuction Suite)              #\n'
+              '##################################################\n'
+              'Starting reduction at: {:s}\n'.format(time.asctime()))
 
         if (pip.reduction_step == 0) or\
                 ((pip.single_step is False) and (pip.reduction_step >= 0)):
 
-            iraf.printlog('Starting reduction step 0\n'
-                          'on directory {:s}\n'.format(pip.raw_dir),
-                          logfile=logfile, verbose='yes')
+            print('Starting reduction step 0\n'
+                  'on directory {:s}\n'.format(pip.raw_dir))
 
             pip.associate_files()
 
@@ -402,10 +403,12 @@ if __name__ == "__main__":
                 else:
                     try:
                         pip.stdstar(star)
-                    except:
+                    except Exception as err:
                         iraf.printlog(
-                            'ERROR! An error ocurred when trying to reduce'
-                            'the standard star {:s}. Check logfile for more'
+                            err.__repr__(), logfile=logfile, verbose='yes')
+                        iraf.printlog(
+                            'ERROR! An error ocurred when trying to reduce '
+                            'the standard star {:s}. Check logfile for more '
                             'information.'.format(star),
                             logfile=logfile, verbose='yes')
 
@@ -443,9 +446,11 @@ if __name__ == "__main__":
                 else:
                     try:
                         pip.science(sci)
-                    except:
+                    except Exception as err:
                         iraf.printlog(
-                            'ERROR! An error ocurred when trying to reduce'
-                            'the galaxy {:s}. Check logfile for more'
+                            err.__repr__(), logfile=logfile, verbose='yes')
+                        iraf.printlog(
+                            'ERROR! An error ocurred when trying to reduce '
+                            'the galaxy {:s}. Check logfile for more '
                             'information.'.format(sci),
                             logfile=logfile, verbose='yes')
