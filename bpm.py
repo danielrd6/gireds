@@ -31,6 +31,8 @@ def make_bpm(flat_seed, bpm_file, pixel_ranges):
 
     pl = np.loadtxt(pixel_ranges, dtype='int16')
 
+    to_be_removed = []
+
     ext_ver = 0
     for i, hdu in enumerate(bpm):
         if hdu.name == 'DQ':
@@ -38,12 +40,18 @@ def make_bpm(flat_seed, bpm_file, pixel_ranges):
             hdu.data[:, :] = 0
             hdu.name = 'DQ'
             hdu.ver = ext_ver
+        else:
+            to_be_removed.append(hdu)
+
+    for hdu in to_be_removed[1:]:
+        bpm.remove(hdu)
 
     for lims in pl:
+        lims[1:] -= 1  # First pixel is 1 in pl, rather than 0.
         bpm['DQ', lims[0]].data[lims[3]:lims[4], lims[1]:lims[2]] = 1
 
     # bpm[0].header['NEXTEND'] = ext_ver
-
+    bpm[0].header['OBSTYPE'] = 'BPM'
     bpm.writeto(bpm_file)
 
 
