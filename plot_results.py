@@ -72,13 +72,13 @@ def plot_summary(cube_file, savefigs=True, img_format='pdf'):
     axim = plt.subplot(gs[0])
     axspec = plt.subplot(gs[1])
 
-    axim.imshow(np.average(cube, 0), interpolation='none')
+    axim.imshow(np.median(cube, 0), interpolation='none')
 
     wl = st.get_wl(
         cube_file, hdrext=1, dataext=1, dimension=0, pix0key='crpix3',
         wl0key='crval3', dwlkey='cd3_3')
 
-    axspec.plot(wl, np.average(cube, (1, 2)))
+    axspec.plot(wl, np.median(cube, (1, 2)))
     axspec.set_xlabel(r'Wavelength ($\AA$)')
     axspec.set_ylim(ymin=0)
 
