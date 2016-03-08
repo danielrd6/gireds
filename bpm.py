@@ -1,7 +1,6 @@
 import pyfits as pf
 import numpy as np
-# import copy
-import sys
+import argparse
 
 
 def make_bpm(flat_seed, bpm_file, pixel_ranges):
@@ -27,7 +26,7 @@ def make_bpm(flat_seed, bpm_file, pixel_ranges):
     """
 
     bpm = pf.open(flat_seed, uint=True)
-    # info = bpm.info(output=False)
+    mjd = bpm[1].header['MJD-OBS']
 
     pl = np.loadtxt(pixel_ranges, dtype='int16')
 
@@ -52,9 +51,17 @@ def make_bpm(flat_seed, bpm_file, pixel_ranges):
 
     # bpm[0].header['NEXTEND'] = ext_ver
     bpm[0].header['OBSTYPE'] = 'BPM'
+    bpm[1].header['MJD-OBS'] = mjd
     bpm.writeto(bpm_file)
 
 
 if __name__ == '__main__':
 
-    make_bpm(sys.argv[1], sys.argv[2], sys.argv[3])
+    parser = argparse.ArgumentParser()
+    parser.add_argument('flat_seed', help='Gprepared flat field exposure '
+                        'on which the BPM will be based.')
+    parser.add_argument('bpm_file', help='Output bad pixel mask.')
+    parser.add_argument('pixel_ranges', help='ASCII file containing the '
+                        'rectangular region definitions to be masked.')
+    args = parser.parse_args()
+    make_bpm(args.flat_seed, args.bpm_file, args.pixel_ranges)

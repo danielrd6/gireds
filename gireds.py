@@ -9,6 +9,7 @@ import glob
 from standard_star import reduce_stdstar
 from galaxy import reduce_science
 from pyraf import iraf
+import argparse
 
 
 def closest_in_time(images, target):
@@ -62,8 +63,6 @@ class pipeline():
             self.run_dir = self.products_dir\
                 + time.strftime('%Y-%m-%dT%H:%M:%S')
 
-
-
     # @profile
     def associate_files(self):
         """
@@ -83,7 +82,7 @@ class pipeline():
                 linelist = arq.readline().split()
                 for j in range(len(infoname)):
                     starinfo[i][j] = linelist[j]
-        
+
         os.chdir(self.raw_dir)
 
         l = glob.glob('*.fits')
@@ -332,11 +331,17 @@ def filecheck(dic, cat):
 
 
 if __name__ == "__main__":
-    import sys
 
-    if sys.argv[1] == '-c':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-c', '--check', help='Checks if the calibration '
+                        'exposures required are available in the raw '
+                        'directory.', action='store_true')
+    parser.add_argument('config_file', help='Configuration file for GIREDS')
+    args = parser.parse_args()
 
-        pip = pipeline(sys.argv[2])
+    if args.check:
+
+        pip = pipeline(args.config_file)
         pip.dry_run = True
         pip.associate_files()
 
@@ -355,7 +360,7 @@ if __name__ == "__main__":
 
         iraf.gemtools()
         iraf.unlearn('gemtools')
-        pip = pipeline(sys.argv[1])
+        pip = pipeline(args.config_file)
         logfile = pip.run_dir + '/logfile.log'
         print('##################################################\n'
               '# GIREDS (Gmos Ifu REDuction Suite)              #\n'
