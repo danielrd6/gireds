@@ -10,6 +10,7 @@ from standard_star import reduce_stdstar
 from galaxy import reduce_science
 from pyraf import iraf
 import argparse
+import json
 
 
 def closest_in_time(images, target):
@@ -286,8 +287,12 @@ class pipeline():
 
         if not self.dry_run:
             os.chdir(self.run_dir)
-            file('file_associations_sci.dat', 'w').write(repr(sci_ims))
-            file('file_associations_std.dat', 'w').write(repr(std_ims))
+            json.dump(
+                sci_ims, file('file_associations_sci.dat', 'w'),
+                sort_keys=True, indent=4)
+            json.dump(
+                std_ims, file('file_associations_std.dat', 'w'),
+                sort_keys=True, indent=4)
 
     def stdstar(self, dic):
 
@@ -336,6 +341,8 @@ if __name__ == "__main__":
     parser.add_argument('-c', '--check', help='Checks if the calibration '
                         'exposures required are available in the raw '
                         'directory.', action='store_true')
+    parser.add_argument('-v', '--verbose', help='Prints the dictionary of '
+                        'file associations.', action='store_true')
     parser.add_argument('config_file', help='Configuration file for GIREDS')
     args = parser.parse_args()
 
@@ -353,6 +360,10 @@ if __name__ == "__main__":
             'bias', 'flat', 'twilight', 'arc', 'standard_star'])
 
         filecheck(pip.sci, cal_categories)
+
+        if args.verbose:
+            print(json.dumps(pip.std, indent=4))
+            print(json.dumps(pip.sci, indent=4))
 
     else:
         iraf.gemini()
