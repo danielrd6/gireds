@@ -42,7 +42,7 @@ def make_bpm(flat_seed, bpm_file, pixel_ranges):
         lims[1:] -= 1  # First pixel is 1 in pl, rather than 0.
         bpm['DQ', lims[0]].data[lims[3]:lims[4], lims[1]:lims[2]] = 1
 
-    # bpm[0].header['NEXTEND'] = ext_ver
+    bpm[0].header['NEXTEND'] = len([i for i in bpm if i.name == 'DQ'])
     bpm[0].header['OBSTYPE'] = 'BPM'
     bpm[1].header['MJD-OBS'] = mjd
     bpm.writeto(bpm_file)
