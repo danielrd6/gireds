@@ -30,6 +30,9 @@ def make_bpm(flat_seed, bpm_file, pixel_ranges):
 
     pl = np.loadtxt(pixel_ranges, dtype='int16')
 
+    if len(np.shape(pl)) == 1:
+        pl = [pl]
+
     to_be_removed = [hdu for hdu in bpm if hdu.name != 'DQ']
 
     for hdu in to_be_removed[1:]:
