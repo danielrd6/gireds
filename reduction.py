@@ -17,7 +17,7 @@ import os
 
 
 def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
-                  vardq, instrument, mdffile, slits):
+                  vardq, instrument, mdffile, slits, giredsdir):
     """
     Reduction pipeline for basic calibration images.
 
@@ -87,7 +87,7 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
             reference='', recenter='yes', fl_vardq=vardq)
 
         # Apertures
-        apertures(flat, vardq, mdffile, overscan, instrument, slits)
+        apertures(flat, vardq, mdffile, overscan, instrument, slits, giredsdir)
 
     # copy mdf used by flat
     if os.path.isfile(mdffile):
@@ -166,7 +166,7 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
             'erg' + arc, wavtran='erg' + arc, outpref='t', fl_vardq='no')
 
 
-def apertures(flat, vardq, mdffile, overscan, instrument, slits):
+def apertures(flat, vardq, mdffile, overscan, instrument, slits, giredsdir):
     """
     Check the aperture solutions from GFEXTRACT and try to fix the
     problems if it's the case.
@@ -319,14 +319,19 @@ def apertures(flat, vardq, mdffile, overscan, instrument, slits):
             # It should be note that this correction may not work every time.
             # *****      vericar se o erro nao ocorre no aperg 2 tb     ******
             # *****      talvez fosse melhor retirar essas linhas       ******
+            with open(giredsdir + '/data/excepcional_apertures.dat', 'r') as f:
+                lines = f.readlines()
+            fix_No = [int(i.split()[1]) for i in lines if flat in i]
             if (mdf['slits'] == 'red' or mdf['slits'] == 'both') and\
                     slitNo == 1:
                 if mdf['instr'].lower() == 'gmos-s':
-                    fix_No = infoGAP[abs(infoGAP['No'] - 450) < 10]['No'][0]
-                    info['dCenter'][info['No'] == fix_No] += medianIN * .5
+                    fix_No = np.append(
+                        fix_No, infoGAP[abs(infoGAP['No'] - 450) < 10]['No'])
                 elif mdf['instr'].lower() == 'gmos-n':
-                    fix_No = infoGAP[abs(infoGAP['No'] - 550) < 10]['No'][0]
-                    info['dCenter'][info['No'] == fix_No] += medianIN * .5
+                    fix_No = np.append(
+                        fix_No, infoGAP[abs(infoGAP['No'] - 550) < 10]['No'])
+            for fix_i in fix_No:
+                info['dCenter'][info['No'] == fix_i] += medianIN * .5
 
             # Calculate the expecteds dCenter values, and identify the errors
             # based in the residuals.
