@@ -183,8 +183,9 @@ class pipeline():
                     (headers[k]['obstype'] == 'BPM') &
                     (headers[k]['observat'] == hdr['observat']) &
                     (headers[k]['detector'] == hdr['detector']) &
-                    (headers_ext1[k]['ccdsum'] == hdr_ext1['ccdsum']) &
-                    (headers_ext1[k]['detsec'] == hdr_ext1['detsec']))]
+                    (headers_ext1[k]['ccdsum'] == hdr_ext1['ccdsum'])
+                    # (headers_ext1[k]['detsec'] == hdr_ext1['detsec'])
+                    )]
 
             categories = ['flat', 'bias', 'arc', 'twilight', 'standard_star',
                           'bpm']
@@ -305,7 +306,8 @@ class pipeline():
             apply_lacos=self.apply_lacos, instrument=dic['instrument'],
             lacos_xorder=self.cfg.getint('reduction', 'lacos_xorder'),
             lacos_yorder=self.cfg.getint('reduction', 'lacos_yorder'),
-            bpm=dic['bpm'], mdffile=dic['mdffile'], slits=dic['slits'])
+            bpm=dic['bpm'], mdffile=dic['mdffile'], slits=dic['slits'],
+            fl_gscrrej=self.cfg.getboolean('reduction', 'fl_gscrrej'))
 
     def science(self, dic):
 
@@ -318,7 +320,8 @@ class pipeline():
             lacos_xorder=self.cfg.getint('reduction', 'lacos_xorder'),
             lacos_yorder=self.cfg.getint('reduction', 'lacos_yorder'),
             bpm=dic['bpm'], mdffile=dic['mdffile'], slits=dic['slits'],
-            instrument=dic['instrument'])
+            instrument=dic['instrument'],
+            fl_gscrrej=self.cfg.getboolean('reduction', 'fl_gscrrej'))
 
 
 def filecheck(dic, cat):
