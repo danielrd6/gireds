@@ -424,6 +424,8 @@ def apertures(flat, vardq, mdffile, overscan, instrument, slits, giredsdir):
                               'yes')
                 if isNoneShift:
                     iraf.printlog("No Shift.", 'logfile.log', 'yes')
+                    # Just errors inside the blocks
+                    infoError = infoError[infoError['where'] == 'inside']
                     if errType[-1] == 'dead':
                         mdf['No'] = infoError[0]['No_next']
                         mdf['beam'] = -1
