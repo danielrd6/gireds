@@ -11,6 +11,38 @@ from galaxy import reduce_science
 from pyraf import iraf
 import argparse
 import json
+import subprocess
+
+
+def get_git_hash(git_dir, short=True):
+    """
+    Gets the Git hash for the current version of the script.
+
+    Paramters
+    ---------
+    git_dir: string
+        Path to the repository root dir.
+    short: bool
+        Returns only the first 7 characters from the hash.
+
+    Returns
+    -------
+    ver: string
+        Git hash for the current version.
+    """
+
+    cwd = os.getcwd()
+    os.chdir(git_dir)
+
+    args = ['git', 'rev-parse', '--short', 'HEAD']
+    if not short:
+        args.remove('--short')
+
+    ver = subprocess.check_output(args).strip('\n')
+
+    os.chdir(cwd)
+
+    return ver
 
 
 def closest_in_time(images, target):
@@ -41,6 +73,9 @@ class pipeline():
         config = ConfigParser.SafeConfigParser()
         config.read(config_file)
         self.cfg = config
+
+        self.gireds_dir = config.get('DEFAULT', 'gireds_dir')
+        self.version = get_git_hash(self.gireds_dir)
 
         self.dry_run = config.getboolean('main', 'dry_run')
         self.fl_over = config.get('reduction', 'fl_over')
@@ -374,6 +409,10 @@ if __name__ == "__main__":
         iraf.gemtools()
         iraf.unlearn('gemtools')
         pip = pipeline(args.config_file)
+
+        ver_stamp = (50 * '#' + '\n' + 'GIREDS version hash: ' + pip.version +
+                     '\n' + 50 * '#' + '\n')
+
         logfile = pip.run_dir + '/logfile.log'
         print('##################################################\n'
               '# GIREDS (Gmos Ifu REDuction Suite)              #\n'
@@ -392,6 +431,9 @@ if __name__ == "__main__":
                 ((pip.single_step is False) and (pip.reduction_step >= 1)):
 
             os.chdir(pip.run_dir)
+
+            iraf.printlog(ver_stamp, logfile=logfile, verbose='yes')
+
             iraf.printlog('Starting reduction step 1\n'
                           'on directory {:s}\n'.format(os.getcwd()),
                           logfile=logfile, verbose='yes')
@@ -432,6 +474,8 @@ if __name__ == "__main__":
 
         if (pip.reduction_step == 2) or\
                 ((pip.single_step is False) and (pip.reduction_step >= 2)):
+
+            iraf.printlog(ver_stamp, logfile=logfile, verbose='yes')
 
             os.chdir(pip.run_dir)
             iraf.printlog(
