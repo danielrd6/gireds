@@ -21,7 +21,7 @@ from reduction import cal_reduction
 def reduce_science(rawdir, rundir, flat, arc, twilight, sciimg,
                    starimg, bias, overscan, vardq, observatory, lacos,
                    apply_lacos, lacos_xorder, lacos_yorder, bpm, instrument,
-                   mdffile, slits, giredsdir):
+                   mdffile, slits, giredsdir, fl_gscrrej):
     """
     Reduction pipeline for standard star.
 
@@ -117,13 +117,16 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, sciimg,
         prefix + sciimg, slits='header', rawpath='./', fl_inter='no',
         fl_addmdf='no', key_mdf='MDF', mdffile='default',
         fl_over='no', fl_trim='no', fl_bias='no', trace='no',
-        recenter='no', fl_flux='no', fl_gscrrej='no', fl_extract='yes',
+        recenter='no', fl_flux='no', fl_gscrrej=fl_gscrrej, fl_extract='yes',
         fl_gsappwave='yes', fl_wavtran='yes', fl_novl='no',
         fl_skysub='yes',
         reference='eprg' + flat, weights='no',
         wavtraname='erg' + arc,
         response='eprg' + flat + '_response.fits', fl_vardq=vardq)
-    prefix = 'ste' + prefix
+    if fl_gscrrej:
+        prefix = 'stex' + prefix
+    else:
+        prefix = 'ste' + prefix
     #
     #   Apply flux calibration to galaxy
     #
