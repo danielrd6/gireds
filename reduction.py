@@ -17,7 +17,7 @@ import os
 
 
 def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
-                  vardq, instrument, mdffile, slits, giredsdir):
+                  vardq, instrument, slits, giredsdir):
     """
     Reduction pipeline for basic calibration images.
 
@@ -61,6 +61,7 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
     arc = arc.strip('.fits')
     iraf.gfreduce.bias = 'caldir$' + bias
     iraf.gireduce.bpm = 'rawdir$' + bpm
+    mdffile = 'mdf' + flat + '.fits'
 
     #
     #   Flat reduction
@@ -89,18 +90,6 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
         # Apertures
         apertures(flat, vardq, mdffile, overscan, instrument, slits, giredsdir)
 
-    # copy mdf used by flat
-    if os.path.isfile(mdffile):
-        iraf.imdelete(mdffile)
-    mdfFits = pf.open(
-        iraf.show('gemini', Stdout=1)[0] + 'gmos/data/' + mdffile)
-
-    nsciext = pf.getval('prg' + flat + '.fits', ext=0, keyword='nsciext')
-    mdfFlatData = pf.getdata('prg' + flat + '.fits', ext=nsciext + 1)
-    mdfFits[1].data = mdfFlatData
-    mdfFits.writeto(mdffile)
-    mdfFits.close()
-
     #
     #   The twilight always has to match exactly the extraction of the
     #   flat field image, therefore it must be re-reduced for every
@@ -112,7 +101,7 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
 
     iraf.gfreduce(
         twilight, slits='header', rawpath='rawdir$', fl_inter='no',
-        fl_addmdf='yes', key_mdf='MDF', mdffile='default', weights='no',
+        fl_addmdf='yes', key_mdf='MDF', mdffile=mdffile, weights='no',
         fl_over=overscan, fl_trim='yes', fl_bias='yes', trace='no',
         fl_flux='no', fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
         fl_wavtran='no', fl_novl='no', fl_skysub='no',
@@ -124,7 +113,7 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
 
     iraf.gfreduce(
         'prg' + twilight, slits='header', rawpath='./', fl_inter='no',
-        fl_addmdf='no', key_mdf='MDF', mdffile='default', weights='no',
+        fl_addmdf='no', key_mdf='MDF', mdffile=mdffile, weights='no',
         fl_over='no', fl_trim='no', fl_bias='no', trace='yes',
         t_order=4, fl_flux='no', fl_gscrrej='no', fl_extract='yes',
         fl_gsappwave='no', fl_wavtran='no', fl_novl='no', fl_skysub='no',
@@ -144,7 +133,7 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
     if not os.path.isfile('erg' + arc + '.fits'):
         iraf.gfreduce(
             arc, slits='header', rawpath='rawdir$', fl_inter='no',
-            fl_addmdf='yes', key_mdf='MDF', mdffile='default', weights='no',
+            fl_addmdf='yes', key_mdf='MDF', mdffile=mdffile, weights='no',
             fl_over=overscan, fl_trim='yes', fl_bias='no', trace='no',
             recenter='no', fl_flux='no', fl_gscrrej='no', fl_extract='yes',
             fl_gsappwave='no', fl_wavtran='no', fl_novl='no', fl_skysub='no',
@@ -243,6 +232,18 @@ def apertures(flat, vardq, mdffile, overscan, instrument, slits, giredsdir):
     performed.
     Example: No tests were made for the case slits=blue.
     """
+    # Read default mdf used before this function
+    nsciext = pf.getval('prg' + flat + '.fits', ext=0, keyword='nsciext')
+    mdfext = nsciext + 1
+    mdfDefaultData = pf.getdata('prg' + flat + '.fits', ext=mdfext)
+
+    # Number of slits
+    if slits == 'both':
+        numSlit = 2
+    if (slits == 'red') or (slits == 'blue'):
+        numSlit = 1
+
+    # Start iteration
     isIterating = True
     resultError = False
     noSolution = False
@@ -254,23 +255,13 @@ def apertures(flat, vardq, mdffile, overscan, instrument, slits, giredsdir):
         iraf.printlog(
             28 * " " + "Iteration " + str(nIter), 'logfile.log', 'yes')
 
-        # Number of slits
-        if slits == 'both':
-            numSlit = 2
-        if (slits == 'red') or (slits == 'blue'):
-            numSlit = 1
-
         reidentify_out = 0
         isGood_out = 0
         for slitNo in range(1, 1 + numSlit):
-
-            # Read mdf data and create dictionary.
-            mdf = {'file': mdffile, 'dir': '', 'No': 0, 'beam': 0,
-                   'modify': False, 'reidentify': False, 'interactive': 'no',
-                   'slits': slits, 'instr': instrument}
-            nsciext = pf.getval(
-                'prg' + flat + '.fits', ext=0, keyword='nsciext')
-            mdfFlatData = pf.getdata('prg' + flat + '.fits', ext=nsciext + 1)
+            # Read mdf data and create dictionary used in the iteration.
+            mdf = {'No': 0, 'beam': 0, 'modify': False, 'reidentify': False,
+                   'interactive': 'no', 'slits': slits, 'instr': instrument}
+            mdfFlatData = pf.getdata('prg' + flat + '.fits', ext=mdfext)
             mdfSlit = mdfFlatData[750 * (slitNo - 1):750 * slitNo]
 
             # Read center/aperture info from aperg* file
@@ -505,9 +496,6 @@ def apertures(flat, vardq, mdffile, overscan, instrument, slits, giredsdir):
                 iraf.printlog("No solution was found.", 'logfile.log', 'yes')
                 iraf.printlog("Repeat identification with default mdf.",
                               'logfile.log', 'yes')
-                # iraf.printlog("Running GFEXTRACT in interctive mode.",
-                #              'logfile.log', 'yes')
-                # mdf['interactive'] = True
 
             # Repeat identification with default mdf if resulted in error or
             # no solution was found.
@@ -520,15 +508,12 @@ def apertures(flat, vardq, mdffile, overscan, instrument, slits, giredsdir):
                 apergPrefList = ['_', '_dq_', '_var_']
                 [os.remove(apergFile.replace('_', i)) for i in apergPrefList]
 
-                # Get original mdf data
-                iraf.cd('gmos$data/')
-                mdfData = pf.getdata(mdffile, ext=1)
-                iraf.cd('procdir')
-
-                # Modify mdf table in flat
+                # Open flat data
                 flatFits = pf.open('prg' + flat + '.fits')
                 iraf.imdelete('prg' + flat + '.fits')
-                flatFits[nsciext + 1].data = mdfData
+
+                # Use default mdf
+                flatFits[mdfext].data = mdfDefaultData
                 flatFits.writeto('prg' + flat + '.fits')
                 flatFits.close()
                 break
@@ -544,7 +529,6 @@ def apertures(flat, vardq, mdffile, overscan, instrument, slits, giredsdir):
                 iraf.imdelete('prg' + flat + '.fits')
 
                 # Modify mdf
-                mdfext = nsciext + 1
                 modify_mask = flatFits[mdfext].data['No'] == mdf['No']
                 flatFits[mdfext].data['beam'][modify_mask] = mdf['beam']
 
@@ -557,10 +541,22 @@ def apertures(flat, vardq, mdffile, overscan, instrument, slits, giredsdir):
             iraf.imdelete('eprg' + flat + '.fits')
             iraf.gfreduce(
                 'prg' + flat, slits='header', rawpath='./',
-                fl_inter=mdf['interactive'],
+                fl_inter='no',
                 fl_addmdf='no', key_mdf='MDF', mdffile='default',
                 mdfdir='procdir$', weights='no',
                 fl_over=overscan, fl_trim='no', fl_bias='no', trace='yes',
                 t_order=4, fl_flux='no', fl_gscrrej='no', fl_extract='yes',
                 fl_gsappwave='no', fl_wavtran='no', fl_novl='no',
                 fl_skysub='no', reference='', recenter='yes', fl_vardq=vardq)
+
+    # Copy mdf used by flat.
+    # File 'gsifu_slits_mdf.fits' is used as base (arbitrarily choosed)
+    mdfFits = pf.open(
+        iraf.show('gemini', Stdout=1)[0] + 'gmos/data/gsifu_slits_mdf.fits')
+    mdfFits[0].header['filename'] = mdffile
+    mdfFlatData = pf.getdata('prg' + flat + '.fits', ext=mdfext)
+    mdfFlatHeader = pf.getheader('prg' + flat + '.fits', ext=mdfext)
+    mdfFits[1].data = mdfFlatData
+    mdfFits[1].header = mdfFlatHeader
+    mdfFits.writeto(mdffile)
+    mdfFits.close()

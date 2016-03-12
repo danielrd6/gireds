@@ -244,24 +244,13 @@ class pipeline():
             ]
             if len(header_flat):
                 header_flat = header_flat[0]
-                mdfPrefix = "g" + header_flat['instrume'][-1].lower() + "ifu_"
-                mdfSufix = ".fits"
-                if header_flat['dettype'] == "S10892":
-                    mdfSufix = "_HAM.fits"
                 MaskName = header_flat['maskname']
                 if MaskName == "IFU-2":
-                    mdffile = mdfPrefix + "slits_mdf" + mdfSufix
                     slits = 'both'
                 elif MaskName == "IFU-B":
-                    mdffile = mdfPrefix + "slitb_mdf" + mdfSufix
                     slits = 'blue'
                 elif MaskName == "IFU-R":
-                    mdffile = mdfPrefix + "slitr_mdf" + mdfSufix
                     slits = 'red'
-                else:
-                    mdffile = 'default'
-                    slits = 'default'
-                i['mdffile'] = mdffile
                 i['slits'] = slits
 
         sci_ims = [i for i in associated if i['obsclass'] == 'science']
@@ -342,7 +331,7 @@ class pipeline():
             apply_lacos=self.apply_lacos, instrument=dic['instrument'],
             lacos_xorder=self.cfg.getint('reduction', 'lacos_xorder'),
             lacos_yorder=self.cfg.getint('reduction', 'lacos_yorder'),
-            bpm=dic['bpm'], mdffile=dic['mdffile'], slits=dic['slits'],
+            bpm=dic['bpm'], slits=dic['slits'],
             giredsdir=self.gireds_dir,
             fl_gscrrej=self.cfg.getboolean('reduction', 'fl_gscrrej'))
 
@@ -356,7 +345,7 @@ class pipeline():
             observatory=dic['observatory'], apply_lacos=self.apply_lacos,
             lacos_xorder=self.cfg.getint('reduction', 'lacos_xorder'),
             lacos_yorder=self.cfg.getint('reduction', 'lacos_yorder'),
-            bpm=dic['bpm'], mdffile=dic['mdffile'], slits=dic['slits'],
+            bpm=dic['bpm'], slits=dic['slits'],
             instrument=dic['instrument'], giredsdir=self.gireds_dir,
             fl_gscrrej=self.cfg.getboolean('reduction', 'fl_gscrrej'))
 
