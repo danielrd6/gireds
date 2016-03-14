@@ -61,7 +61,7 @@ def circular_aperture(image, radius=1):
 def reduce_stdstar(
         rawdir, rundir, caldir, starobj, stdstar, flat, arc, twilight,
         starimg, bias, overscan, vardq, lacos, observatory, apply_lacos,
-        lacos_xorder, lacos_yorder, bpm, instrument, mdffile, slits,
+        lacos_xorder, lacos_yorder, bpm, instrument, slits, giredsdir,
         fl_gscrrej):
     """
     Reduction pipeline for standard star.
@@ -123,17 +123,18 @@ def reduce_stdstar(
 
     iraf.gfreduce.bias = 'rawdir$'+bias
     iraf.gireduce.bpm = 'rawdir$'+bpm
+    mdffile = 'mdf' + flat + '.fits'
 
     cal_reduction(
         rawdir=rawdir, rundir=rundir, flat=flat, arc=arc, twilight=twilight,
-        bias=bias, bpm=bpm, overscan=overscan, vardq=vardq, mdffile=mdffile,
-        instrument=instrument, slits=slits)
+        bias=bias, bpm=bpm, overscan=overscan, vardq=vardq,
+        instrument=instrument, slits=slits, giredsdir=giredsdir)
     #
     #   Actually reduce star
     #
     iraf.gfreduce(
         starimg, slits='header', rawpath='rawdir$', fl_inter='no',
-        fl_addmdf='yes', key_mdf='MDF', mdffile='default', weights='no',
+        fl_addmdf='yes', key_mdf='MDF', mdffile=mdffile, weights='no',
         fl_over=overscan, fl_trim='yes', fl_bias='yes', trace='no',
         recenter='no',
         fl_flux='no', fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
@@ -154,7 +155,7 @@ def reduce_stdstar(
 
     iraf.gfreduce(
         prefix + starimg, slits='header', rawpath='./', fl_inter='no',
-        fl_addmdf='no', key_mdf='MDF', mdffile='default', fl_over='no',
+        fl_addmdf='no', key_mdf='MDF', mdffile=mdffile, fl_over='no',
         fl_trim='no', fl_bias='no', trace='no', recenter='no', fl_flux='no',
         fl_gscrrej=fl_gscrrej, fl_extract='yes', fl_gsappwave='yes',
         fl_wavtran='yes', fl_novl='no', fl_skysub='yes',
