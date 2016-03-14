@@ -58,6 +58,15 @@ def closest_in_time(images, target):
     return images[abs(mjds - tgt_mjd).argsort()[1]]
 
 
+class GiredsError(Exception):
+
+    def __init__(self, value):
+        self.value = value
+
+    def __str__(self):
+        return repr(self.value)
+
+
 class pipeline():
 
     """
@@ -71,7 +80,11 @@ class pipeline():
     def __init__(self, config_file):
 
         config = ConfigParser.SafeConfigParser()
-        config.read(config_file)
+        cfgnames = config.read(config_file)
+        if cfgnames == []:
+            raise GiredsError(
+                'Config file {:s} not found.'.format(config_file))
+
         self.cfg = config
 
         self.gireds_dir = config.get('DEFAULT', 'gireds_dir')
