@@ -15,6 +15,42 @@ import numpy as np
 import pyfits as pf
 import os
 
+def wl_lims(image, trim_fraction=0.02):
+    """
+    Evaluates the wavelength trimming limits as a fraction
+    of the total wavelength range.
+
+    Parameters
+    ----------
+    image: string
+        Name of the wavelength calibrated image that will be
+        transformed.
+    trim_fraction: float
+        Fraction of the wavelength span to be trimmed at both ends.
+
+    Returns
+    -------
+    wl0: float
+        Lower limit in wavelength.
+    wl1: float
+        Upper limit in wavelength.
+    """
+
+    hdu = pf.open(image)
+
+    h = hdu[2].header
+    crval, crpix, dwl = [h[i] for i in ['CRVAL1', 'CRPIX1', 'CD1_1']]
+    npix = shape(hdu[2].data)[1]
+
+    wl = crval + (arange(1, npix+1, dtype='float32') - crpix) * dwl
+    wl.sort()
+
+    span = wl[-1] - wl[0]
+
+    wl0 = crval + span * trim_fraction
+    wl1 = crval + span * (1.0 - trim_fraction)
+
+    return wl0, wl1
 
 def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
                   vardq, instrument, slits, giredsdir):
