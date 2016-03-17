@@ -16,7 +16,7 @@ from pyraf import iraf
 import matplotlib.pyplot as plt
 import numpy as np
 import pyfits as pf
-from reduction import cal_reduction
+from reduction import cal_reduction, wl_lims
 
 
 def circular_aperture(image, radius=1):
@@ -153,6 +153,10 @@ def reduce_stdstar(
             niter=4, fl_vardq=vardq, xorder=lacos_xorder, yorder=lacos_yorder)
         prefix = 'l' + prefix
 
+    wl1, wl2 = wl_lims(prefix + starimg)
+    if wl2 > 7550.0:
+        wl2 = 7550.0
+
     iraf.gfreduce(
         prefix + starimg, slits='header', rawpath='./', fl_inter='no',
         fl_addmdf='no', key_mdf='MDF', mdffile=mdffile, fl_over='no',
@@ -160,7 +164,8 @@ def reduce_stdstar(
         fl_gscrrej=fl_gscrrej, fl_extract='yes', fl_gsappwave='yes',
         fl_wavtran='yes', fl_novl='no', fl_skysub='yes',
         reference='eprg' + flat, weights='no', wavtraname='erg' + arc,
-        response='eprg' + flat + '_response.fits', fl_vardq=vardq)
+        response='eprg' + flat + '_response.fits', fl_vardq=vardq,
+        w1=wl1, w2=wl2)
     if fl_gscrrej:
         prefix = 'stex' + prefix
     else:

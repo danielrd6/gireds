@@ -15,6 +15,7 @@ import numpy as np
 import pyfits as pf
 import os
 
+
 def wl_lims(image, trim_fraction=0.02):
     """
     Evaluates the wavelength trimming limits as a fraction
@@ -40,17 +41,18 @@ def wl_lims(image, trim_fraction=0.02):
 
     h = hdu[2].header
     crval, crpix, dwl = [h[i] for i in ['CRVAL1', 'CRPIX1', 'CD1_1']]
-    npix = shape(hdu[2].data)[1]
+    npix = np.shape(hdu[2].data)[1]
 
-    wl = crval + (arange(1, npix+1, dtype='float32') - crpix) * dwl
+    wl = crval + (np.arange(1, npix+1, dtype='float32') - crpix) * dwl
     wl.sort()
 
     span = wl[-1] - wl[0]
 
-    wl0 = crval + span * trim_fraction
-    wl1 = crval + span * (1.0 - trim_fraction)
+    wl0 = wl[0] + span * trim_fraction
+    wl1 = wl[0] + span * (1.0 - trim_fraction)
 
     return wl0, wl1
+
 
 def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
                   vardq, instrument, slits, giredsdir):
@@ -186,9 +188,13 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
     #
     #   Apply wavelength solution to the lamp 2D spectra
     #
+    wl1, wl2 = wl_lims('erg' + arc)
+    if wl2 > 7550.0:
+        wl2 = 7550.0
     if not os.path.isfile('teprg' + arc):
         iraf.gftransform(
-            'erg' + arc, wavtran='erg' + arc, outpref='t', fl_vardq='no')
+            'erg' + arc, wavtran='erg' + arc, outpref='t', fl_vardq='no',
+            w1=wl1, w2=wl2)
 
 
 def apertures(flat, vardq, mdffile, overscan, instrument, slits, giredsdir):
