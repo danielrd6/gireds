@@ -188,10 +188,10 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
     #
     #   Apply wavelength solution to the lamp 2D spectra
     #
-    wl1, wl2 = wl_lims('erg' + arc)
+    wl1, wl2 = wl_lims('erg' + arc + '.fits')
     if wl2 > 7550.0:
         wl2 = 7550.0
-    if not os.path.isfile('teprg' + arc):
+    if not os.path.isfile('teprg' + arc + '.fits'):
         iraf.gftransform(
             'erg' + arc, wavtran='erg' + arc, outpref='t', fl_vardq='no',
             w1=wl1, w2=wl2)

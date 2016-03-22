@@ -114,7 +114,7 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, sciimg,
             niter=4, fl_vardq=vardq, xorder=lacos_xorder, yorder=lacos_yorder)
         prefix = 'l' + prefix
 
-    wl1, wl2 = wl_lims(prefix + starimg)
+    wl1, wl2 = wl_lims(prefix + starimg + '.fits')
     if wl2 > 7550.0:
         wl2 = 7550.0
 
