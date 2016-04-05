@@ -62,7 +62,7 @@ def reduce_stdstar(
         rawdir, rundir, caldir, starobj, stdstar, flat, arc, twilight,
         starimg, bias, overscan, vardq, lacos, observatory, apply_lacos,
         lacos_xorder, lacos_yorder, bpm, instrument, slits, giredsdir,
-        fl_gscrrej, wltrim_frac=0.03):
+        fl_gscrrej, wltrim_frac=0.03, sens_order=6, sens_function='spline3'):
     """
     Reduction pipeline for standard star.
 
@@ -201,7 +201,8 @@ def reduce_stdstar(
     #
     iraf.gsstandard(
         'a' + prefix + starimg, starname=stdstar, observatory=observatory,
-        sfile='std' + starimg, sfunction='sens' + starimg, caldir=caldir)
+        sfile='std' + starimg, sfunction='sens' + starimg, caldir=caldir,
+        order=sens_order, function=sens_function)
     #
     #   Apply flux calibration to star
     #
