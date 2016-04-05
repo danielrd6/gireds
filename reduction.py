@@ -16,8 +16,62 @@ import pyfits as pf
 import os
 
 
+def wl_lims(image, trim_fraction=0.02):
+    """
+    Evaluates the wavelength trimming limits as a fraction
+    of the total wavelength range.
+
+    Parameters
+    ----------
+    image: string
+        Name of the wavelength calibrated image that will be
+        transformed.
+    trim_fraction: float
+        Fraction of the wavelength span to be trimmed at both ends.
+
+    Returns
+    -------
+    wl0: float
+        Lower limit in wavelength.
+    wl1: float
+        Upper limit in wavelength.
+    """
+
+    hdu = pf.open(image)
+
+    nimages = 0
+    for i in hdu:
+        if i.name == 'SCI':
+            nimages += 1
+
+    if nimages == 1:
+        h = hdu[2].header
+        crval, crpix, dwl = [h[i] for i in ['CRVAL1', 'CRPIX1', 'CD1_1']]
+        npix = np.shape(hdu[2].data)[1]
+
+        wl = crval + (np.arange(1, npix+1, dtype='float32') - crpix) * dwl
+
+    if nimages == 2:
+        h = [hdu[2].header, hdu[3].header]
+        crval, crpix, dwl = [(h[0][i], h[1][i]) for i in ['CRVAL1', 'CRPIX1',
+                                                          'CD1_1']]
+        npix = (np.shape(hdu[2].data)[1], np.shape(hdu[3].data)[1])
+        wl = np.append(*[crval[i] + (np.arange(1, npix[i] + 1,
+                                     dtype='float32') - crpix[i]) * dwl[i]
+                         for i in range(2)])
+
+    wl.sort()
+
+    span = wl[-1] - wl[0]
+
+    wl0 = wl[0] + span * trim_fraction
+    wl1 = wl[0] + span * (1.0 - trim_fraction)
+
+    return wl0, wl1
+
+
 def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
-                  vardq, instrument, slits, giredsdir):
+                  vardq, instrument, slits, giredsdir, wltrim_frac=0.03):
     """
     Reduction pipeline for basic calibration images.
 
@@ -150,9 +204,13 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
     #
     #   Apply wavelength solution to the lamp 2D spectra
     #
-    if not os.path.isfile('teprg' + arc):
+    wl1, wl2 = wl_lims('erg' + arc + '.fits', wltrim_frac)
+    if wl2 > 7550.0:
+        wl2 = 7550.0
+    if not os.path.isfile('teprg' + arc + '.fits'):
         iraf.gftransform(
-            'erg' + arc, wavtran='erg' + arc, outpref='t', fl_vardq='no')
+            'erg' + arc, wavtran='erg' + arc, outpref='t', fl_vardq='no',
+            w1=wl1, w2=wl2)
 
 
 def apertures(flat, vardq, mdffile, overscan, instrument, slits, giredsdir):

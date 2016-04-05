@@ -346,7 +346,10 @@ class pipeline():
             lacos_yorder=self.cfg.getint('reduction', 'lacos_yorder'),
             bpm=dic['bpm'], slits=dic['slits'],
             giredsdir=self.gireds_dir,
-            fl_gscrrej=self.cfg.getboolean('reduction', 'fl_gscrrej'))
+            fl_gscrrej=self.cfg.getboolean('reduction', 'fl_gscrrej'),
+            wltrim_frac=self.cfg.getfloat('reduction', 'wltrim_frac'),
+            sens_order=self.cfg.getint('reduction', 'sens_order'),
+            sens_function=self.cfg.get('reduction', 'sens_function'))
 
     def science(self, dic):
 
@@ -360,7 +363,8 @@ class pipeline():
             lacos_yorder=self.cfg.getint('reduction', 'lacos_yorder'),
             bpm=dic['bpm'], slits=dic['slits'],
             instrument=dic['instrument'], giredsdir=self.gireds_dir,
-            fl_gscrrej=self.cfg.getboolean('reduction', 'fl_gscrrej'))
+            fl_gscrrej=self.cfg.getboolean('reduction', 'fl_gscrrej'),
+            wltrim_frac=self.cfg.getfloat('reduction', 'wltrim_frac'))
 
 
 def filecheck(dic, cat):
