@@ -39,11 +39,27 @@ def wl_lims(image, trim_fraction=0.02):
 
     hdu = pf.open(image)
 
-    h = hdu[2].header
-    crval, crpix, dwl = [h[i] for i in ['CRVAL1', 'CRPIX1', 'CD1_1']]
-    npix = np.shape(hdu[2].data)[1]
+    nimages = 0
+    for i in hdu:
+        if i.__class__ == pf.hdu.image.ImageHDU:
+            nimages += 1
 
-    wl = crval + (np.arange(1, npix+1, dtype='float32') - crpix) * dwl
+    if nimages == 1:
+        h = hdu[2].header
+        crval, crpix, dwl = [h[i] for i in ['CRVAL1', 'CRPIX1', 'CD1_1']]
+        npix = np.shape(hdu[2].data)[1]
+
+        wl = crval + (np.arange(1, npix+1, dtype='float32') - crpix) * dwl
+
+    if nimages == 2:
+        h = [hdu[2].header, hdu[3].header]
+        crval, crpix, dwl = [(h[0][i], h[1][i]) for i in ['CRVAL1', 'CRPIX1',
+                                                          'CD1_1']]
+        npix = (np.shape(hdu[2].data)[1], np.shape(hdu[3].data)[1])
+        wl = np.append(*[crval[i] + (np.arange(1, npix[i] + 1,
+                                     dtype='float32') - crpix[i]) * dwl[i]
+                         for i in range(2)])
+
     wl.sort()
 
     span = wl[-1] - wl[0]
@@ -193,7 +209,7 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
         wl2 = 7550.0
     if not os.path.isfile('teprg' + arc + '.fits'):
         iraf.gftransform(
-            'erg' + arc, wavtran='erg' + arc, outpref='t', fl_vardq='no',
+            'erg' + arc, wavtran='erg' + arc, outpref='t', fl_vardq='yes',
             w1=wl1, w2=wl2)
 
 
