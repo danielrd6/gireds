@@ -41,7 +41,7 @@ def wl_lims(image, trim_fraction=0.02):
 
     nimages = 0
     for i in hdu:
-        if i.__class__ == pf.hdu.image.ImageHDU:
+        if i.name == 'SCI':
             nimages += 1
 
     if nimages == 1:
@@ -71,7 +71,7 @@ def wl_lims(image, trim_fraction=0.02):
 
 
 def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
-                  vardq, instrument, slits, giredsdir):
+                  vardq, instrument, slits, giredsdir, wltrim_frac=0.03):
     """
     Reduction pipeline for basic calibration images.
 
@@ -204,12 +204,12 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
     #
     #   Apply wavelength solution to the lamp 2D spectra
     #
-    wl1, wl2 = wl_lims('erg' + arc + '.fits')
+    wl1, wl2 = wl_lims('erg' + arc + '.fits', wltrim_frac)
     if wl2 > 7550.0:
         wl2 = 7550.0
     if not os.path.isfile('teprg' + arc + '.fits'):
         iraf.gftransform(
-            'erg' + arc, wavtran='erg' + arc, outpref='t', fl_vardq='yes',
+            'erg' + arc, wavtran='erg' + arc, outpref='t', fl_vardq='no',
             w1=wl1, w2=wl2)
 
 

@@ -62,7 +62,7 @@ def reduce_stdstar(
         rawdir, rundir, caldir, starobj, stdstar, flat, arc, twilight,
         starimg, bias, overscan, vardq, lacos, observatory, apply_lacos,
         lacos_xorder, lacos_yorder, bpm, instrument, slits, giredsdir,
-        fl_gscrrej):
+        fl_gscrrej, wltrim_frac=0.03):
     """
     Reduction pipeline for standard star.
 
@@ -136,10 +136,9 @@ def reduce_stdstar(
         starimg, slits='header', rawpath='rawdir$', fl_inter='no',
         fl_addmdf='yes', key_mdf='MDF', mdffile=mdffile, weights='no',
         fl_over=overscan, fl_trim='yes', fl_bias='yes', trace='no',
-        recenter='no',
-        fl_flux='no', fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
-        fl_wavtran='no', fl_novl='yes', fl_skysub='no', fl_vardq=vardq,
-        mdfdir='procdir$')
+        recenter='no', fl_flux='no', fl_gscrrej='no', fl_extract='no',
+        fl_gsappwave='no', fl_wavtran='no', fl_novl='yes', fl_skysub='no',
+        fl_vardq=vardq, mdfdir='procdir$')
     prefix = 'rg'
 
     # Gemfix
@@ -153,7 +152,20 @@ def reduce_stdstar(
             niter=4, fl_vardq=vardq, xorder=lacos_xorder, yorder=lacos_yorder)
         prefix = 'l' + prefix
 
-    wl1, wl2 = wl_lims(prefix + starimg + '.fits')
+    iraf.gfreduce(
+        prefix + starimg, slits='header', rawpath='./', fl_inter='no',
+        fl_addmdf='no', key_mdf='MDF', mdffile=mdffile, fl_over='no',
+        fl_trim='no', fl_bias='no', trace='no', recenter='no', fl_flux='no',
+        fl_gscrrej=fl_gscrrej, fl_extract='yes', fl_gsappwave='yes',
+        fl_wavtran='no', fl_novl='no', fl_skysub='no',
+        reference='eprg' + flat, weights='no', wavtraname='erg' + arc,
+        response='eprg' + flat + '_response.fits', fl_vardq=vardq)
+    if fl_gscrrej:
+        prefix = 'ex' + prefix
+    else:
+        prefix = 'e' + prefix
+
+    wl1, wl2 = wl_lims(prefix + starimg + '.fits', wltrim_frac)
     if wl2 > 7550.0:
         wl2 = 7550.0
 
@@ -161,15 +173,14 @@ def reduce_stdstar(
         prefix + starimg, slits='header', rawpath='./', fl_inter='no',
         fl_addmdf='no', key_mdf='MDF', mdffile=mdffile, fl_over='no',
         fl_trim='no', fl_bias='no', trace='no', recenter='no', fl_flux='no',
-        fl_gscrrej=fl_gscrrej, fl_extract='yes', fl_gsappwave='yes',
+        fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
         fl_wavtran='yes', fl_novl='no', fl_skysub='yes',
         reference='eprg' + flat, weights='no', wavtraname='erg' + arc,
         response='eprg' + flat + '_response.fits', fl_vardq=vardq,
         w1=wl1, w2=wl2)
-    if fl_gscrrej:
-        prefix = 'stex' + prefix
-    else:
-        prefix = 'ste' + prefix
+
+    prefix = 'st' + prefix
+
     #
     #   Apsumming the stellar spectra
     #
