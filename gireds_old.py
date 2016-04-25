@@ -14,6 +14,9 @@ import json
 import subprocess
 
 
+__version__ = '0.1'
+
+
 def get_git_hash(git_dir, short=True):
     """
     Gets the Git hash for the current version of the script.
