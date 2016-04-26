@@ -32,12 +32,14 @@ def query_archive(query):
             f['central_wavelength'] *= 1e+3
 
         fields = [
-            f['name'], f['observation_class'], f['observation_type'],
+            f['name'], f['ra'], f['dec'],
+            f['observation_class'], f['observation_type'],
             f['qa_state'],  f['object'], f['central_wavelength'],
             f['disperser']]
         
         total_data_size += f['data_size']
-        print('{:30s}{:12s}{:12s}{:12s}{:16s}{:8.0f}{:>10s}'.format(*fields))
+        print('{:30s}{:8.2f}{:8.2f}{:12s}{:12s}{:12s}{:16s}{:8.0f}{:>10s}'.
+              format(*fields))
     
     print 'Total data size: %d' % total_data_size
 

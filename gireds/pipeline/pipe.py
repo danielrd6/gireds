@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 import pyfits as pf
 import numpy as np
 import os
@@ -12,6 +10,7 @@ from pyraf import iraf
 import argparse
 import json
 import subprocess
+from distutils.sysconfig import get_python_lib
 
 
 def get_git_hash(git_dir, short=True):
@@ -87,8 +86,9 @@ class pipeline():
 
         self.cfg = config
 
-        self.gireds_dir = config.get('DEFAULT', 'gireds_dir')
-        self.version = get_git_hash(self.gireds_dir)
+        self.gireds_dir = get_python_lib() + '/gireds/'
+        # self.version = get_git_hash(self.gireds_dir)
+        self.version = '0.1.0'
 
         self.dry_run = config.getboolean('main', 'dry_run')
         self.fl_over = config.get('reduction', 'fl_over')
@@ -97,13 +97,14 @@ class pipeline():
         self.reduction_step = config.getint('main', 'reduction_step')
         self.single_step = config.getboolean('main', 'single_step')
 
-        self.starinfo_file = config.get('associations', 'starinfo_file')
+        # self.starinfo_file = config.get('associations', 'starinfo_file')
+        self.starinfo_file = get_python_lib() + '/gireds/data/starinfo.dat'
+
         self.lacos_file = config.get('third_party', 'lacos_file')
         self.apply_lacos = config.getboolean('reduction', 'apply_lacos')
         # Define directory structure
         self.raw_dir = config.get('main', 'raw_dir')
         self.products_dir = config.get('main', 'products_dir')
-        self.gireds_dir = config.get('main', 'gireds_dir')
 
         self.all_stars = config.getboolean('associations', 'all_stars')
 
@@ -234,7 +235,7 @@ class pipeline():
                     (headers[k]['detector'] == hdr['detector']) &
                     (headers_ext1[k]['ccdsum'] == hdr_ext1['ccdsum'])
                     # (headers_ext1[k]['detsec'] == hdr_ext1['detsec'])
-                    )]
+                )]
 
             categories = ['flat', 'bias', 'arc', 'twilight', 'standard_star',
                           'bpm']
@@ -381,8 +382,7 @@ def filecheck(dic, cat):
             print('{:20s} {:s}: OK'.format(img['object'], img['image']))
 
 
-if __name__ == "__main__":
-
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--check', help='Checks if the calibration '
                         'exposures required are available in the raw '
