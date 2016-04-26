@@ -194,7 +194,8 @@ def reduce_stdstar(
     ap_expression = '((XINST-{:.2f})**2 + (YINST-2.45)**2)**0.5 < 1'.format(x0)
 
     iraf.gfapsum(
-        prefix + starimg, fl_inter='no', lthreshold=400.,
+        prefix + starimg, fl_inter='no', lthreshold='INDEF',
+        hthreshold='INDEF',
         reject='avsigclip', expr=ap_expression)
     #
     #   Building sensibility function
