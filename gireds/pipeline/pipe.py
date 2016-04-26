@@ -86,8 +86,9 @@ class pipeline():
 
         self.cfg = config
 
-        self.gireds_dir = config.get('DEFAULT', 'gireds_dir')
-        self.version = get_git_hash(self.gireds_dir)
+        self.gireds_dir = get_python_lib() + '/gireds/'
+        # self.version = get_git_hash(self.gireds_dir)
+        self.version = '0.1.0'
 
         self.dry_run = config.getboolean('main', 'dry_run')
         self.fl_over = config.get('reduction', 'fl_over')
@@ -104,7 +105,6 @@ class pipeline():
         # Define directory structure
         self.raw_dir = config.get('main', 'raw_dir')
         self.products_dir = config.get('main', 'products_dir')
-        self.gireds_dir = config.get('main', 'gireds_dir')
 
         self.all_stars = config.getboolean('associations', 'all_stars')
 
