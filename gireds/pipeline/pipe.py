@@ -10,6 +10,7 @@ from pyraf import iraf
 import argparse
 import json
 import subprocess
+from distutils.sysconfig import get_python_lib
 
 
 def get_git_hash(git_dir, short=True):
@@ -95,7 +96,9 @@ class pipeline():
         self.reduction_step = config.getint('main', 'reduction_step')
         self.single_step = config.getboolean('main', 'single_step')
 
-        self.starinfo_file = config.get('associations', 'starinfo_file')
+        # self.starinfo_file = config.get('associations', 'starinfo_file')
+        self.starinfo_file = get_python_lib() + '/gireds/data/starinfo.dat'
+
         self.lacos_file = config.get('third_party', 'lacos_file')
         self.apply_lacos = config.getboolean('reduction', 'apply_lacos')
         # Define directory structure
@@ -232,7 +235,7 @@ class pipeline():
                     (headers[k]['detector'] == hdr['detector']) &
                     (headers_ext1[k]['ccdsum'] == hdr_ext1['ccdsum'])
                     # (headers_ext1[k]['detsec'] == hdr_ext1['detsec'])
-                    )]
+                )]
 
             categories = ['flat', 'bias', 'arc', 'twilight', 'standard_star',
                           'bpm']
@@ -379,7 +382,7 @@ def filecheck(dic, cat):
             print('{:20s} {:s}: OK'.format(img['object'], img['image']))
 
 
-def main():    
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--check', help='Checks if the calibration '
                         'exposures required are available in the raw '
@@ -388,74 +391,74 @@ def main():
                         'file associations.', action='store_true')
     parser.add_argument('config_file', help='Configuration file for GIREDS')
     args = parser.parse_args()
-    
+
     if args.check:
-    
+
         pip = pipeline(args.config_file)
         pip.dry_run = True
         pip.associate_files()
-    
+
         cal_categories = np.array(['bias', 'flat', 'twilight', 'arc'])
-    
+
         filecheck(pip.std, cal_categories)
-    
+
         cal_categories = np.array([
             'bias', 'flat', 'twilight', 'arc', 'standard_star'])
-    
+
         filecheck(pip.sci, cal_categories)
-    
+
         if args.verbose:
             print(json.dumps(pip.std, indent=4))
             print(json.dumps(pip.sci, indent=4))
-    
+
     else:
         iraf.gemini()
         iraf.unlearn('gemini')
-    
+
         iraf.gemtools()
         iraf.unlearn('gemtools')
         pip = pipeline(args.config_file)
-    
+
         ver_stamp = (50 * '#' + '\n' + 'GIREDS version hash: ' + pip.version +
                      '\n' + 50 * '#' + '\n')
-    
+
         logfile = pip.run_dir + '/logfile.log'
         print('##################################################\n'
               '# GIREDS (Gmos Ifu REDuction Suite)              #\n'
               '##################################################\n'
               'Starting reduction at: {:s}\n'.format(time.asctime()))
-    
+
         if (pip.reduction_step == 0) or\
                 ((pip.single_step is False) and (pip.reduction_step >= 0)):
-    
+
             print('Starting reduction step 0\n'
                   'on directory {:s}\n'.format(pip.raw_dir))
-    
+
             pip.associate_files()
-    
+
         if (pip.reduction_step == 1) or\
                 ((pip.single_step is False) and (pip.reduction_step >= 1)):
-    
+
             os.chdir(pip.run_dir)
-    
+
             iraf.printlog(ver_stamp, logfile=logfile, verbose='yes')
-    
+
             iraf.printlog('Starting reduction step 1\n'
                           'on directory {:s}\n'.format(os.getcwd()),
                           logfile=logfile, verbose='yes')
-    
+
             r = file('file_associations_sci.dat', 'r').read()
             pip.sci = eval(r)
             r = file('file_associations_std.dat', 'r').read()
             pip.std = eval(r)
-    
+
             cal_categories = np.array(['bias', 'flat', 'twilight', 'arc'])
-    
+
             for star in pip.std:
-    
+
                 cal = np.array([
                     True if star[i] != '' else False for i in cal_categories])
-    
+
                 if not cal.all():
                     iraf.printlog(
                         ('ERROR! Image {:s} does not have all the necessary'
@@ -477,30 +480,30 @@ def main():
                             'the standard star {:s}. Check logfile for more '
                             'information.'.format(star),
                             logfile=logfile, verbose='yes')
-    
+
         if (pip.reduction_step == 2) or\
                 ((pip.single_step is False) and (pip.reduction_step >= 2)):
-    
+
             iraf.printlog(ver_stamp, logfile=logfile, verbose='yes')
-    
+
             os.chdir(pip.run_dir)
             iraf.printlog(
                 'Starting reduction step 2 on directory {:s}\n'
                 .format(os.getcwd()), logfile=logfile, verbose='yes')
-    
+
             r = file('file_associations_sci.dat', 'r').read()
             pip.sci = eval(r)
             r = file('file_associations_std.dat', 'r').read()
             pip.std = eval(r)
- 
+
             cal_categories = np.array([
                 'bias', 'flat', 'twilight', 'arc', 'standard_star'])
-    
+
             for sci in pip.sci:
-    
+
                 cal = np.array([
                     True if sci[i] != '' else False for i in cal_categories])
-    
+
                 if not cal.all():
                     iraf.printlog(
                         ('ERROR! Image {:s} does not have all the necessary\n'
