@@ -62,7 +62,8 @@ def reduce_stdstar(
         rawdir, rundir, caldir, starobj, stdstar, flat, arc, twilight,
         starimg, bias, overscan, vardq, lacos, observatory, apply_lacos,
         lacos_xorder, lacos_yorder, bpm, instrument, slits, giredsdir,
-        fl_gscrrej, wltrim_frac=0.03, sens_order=6, sens_function='spline3'):
+        fl_gscrrej, wltrim_frac=0.03, sens_order=6, sens_function='spline3',
+        apsum_radius=1):
     """
     Reduction pipeline for standard star.
 
@@ -166,8 +167,6 @@ def reduce_stdstar(
         prefix = 'e' + prefix
 
     wl1, wl2 = wl_lims(prefix + starimg + '.fits', wltrim_frac)
-    if wl2 > 7550.0:
-        wl2 = 7550.0
 
     iraf.gfreduce(
         prefix + starimg, slits='header', rawpath='./', fl_inter='no',
@@ -191,7 +190,8 @@ def reduce_stdstar(
     elif instrument == 'GMOS-S':
         x0 = np.average(xinst[xinst > 10])
 
-    ap_expression = '((XINST-{:.2f})**2 + (YINST-2.45)**2)**0.5 < 1'.format(x0)
+    ap_expression = '((XINST-{:.2f})**2 + '\
+        '(YINST-2.45)**2)**0.5 < {:.2f}'.format(x0, apsum_radius)
 
     iraf.gfapsum(
         prefix + starimg, fl_inter='no', lthreshold='INDEF',

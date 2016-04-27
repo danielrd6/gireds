@@ -328,10 +328,10 @@ class pipeline():
         if not self.dry_run:
             os.chdir(self.run_dir)
             json.dump(
-                sci_ims, file('file_associations_sci.dat', 'w'),
+                sci_ims, open('file_associations_sci.dat', 'w'),
                 sort_keys=True, indent=4)
             json.dump(
-                std_ims, file('file_associations_std.dat', 'w'),
+                std_ims, open('file_associations_std.dat', 'w'),
                 sort_keys=True, indent=4)
 
     def stdstar(self, dic):
@@ -365,7 +365,8 @@ class pipeline():
             bpm=dic['bpm'], slits=dic['slits'],
             instrument=dic['instrument'], giredsdir=self.gireds_dir,
             fl_gscrrej=self.cfg.getboolean('reduction', 'fl_gscrrej'),
-            wltrim_frac=self.cfg.getfloat('reduction', 'wltrim_frac'))
+            wltrim_frac=self.cfg.getfloat('reduction', 'wltrim_frac'),
+            apsum_radius=self.cfg.getfloat('reduction', 'apsum_radius'))
 
 
 def filecheck(dic, cat):
@@ -447,9 +448,9 @@ def main():
                           'on directory {:s}\n'.format(os.getcwd()),
                           logfile=logfile, verbose='yes')
 
-            r = file('file_associations_sci.dat', 'r').read()
+            r = open('file_associations_sci.dat', 'r').read()
             pip.sci = eval(r)
-            r = file('file_associations_std.dat', 'r').read()
+            r = open('file_associations_std.dat', 'r').read()
             pip.std = eval(r)
 
             cal_categories = np.array(['bias', 'flat', 'twilight', 'arc'])
@@ -491,9 +492,9 @@ def main():
                 'Starting reduction step 2 on directory {:s}\n'
                 .format(os.getcwd()), logfile=logfile, verbose='yes')
 
-            r = file('file_associations_sci.dat', 'r').read()
+            r = open('file_associations_sci.dat', 'r').read()
             pip.sci = eval(r)
-            r = file('file_associations_std.dat', 'r').read()
+            r = open('file_associations_std.dat', 'r').read()
             pip.std = eval(r)
 
             cal_categories = np.array([
