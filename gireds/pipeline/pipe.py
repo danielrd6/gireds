@@ -350,7 +350,8 @@ class pipeline():
             fl_gscrrej=self.cfg.getboolean('reduction', 'fl_gscrrej'),
             wltrim_frac=self.cfg.getfloat('reduction', 'wltrim_frac'),
             sens_order=self.cfg.getint('reduction', 'sens_order'),
-            sens_function=self.cfg.get('reduction', 'sens_function'))
+            sens_function=self.cfg.get('reduction', 'sens_function'),
+            apsum_radius=self.cfg.getfloat('reduction', 'apsum_radius'))
 
     def science(self, dic):
 
@@ -365,8 +366,7 @@ class pipeline():
             bpm=dic['bpm'], slits=dic['slits'],
             instrument=dic['instrument'], giredsdir=self.gireds_dir,
             fl_gscrrej=self.cfg.getboolean('reduction', 'fl_gscrrej'),
-            wltrim_frac=self.cfg.getfloat('reduction', 'wltrim_frac'),
-            apsum_radius=self.cfg.getfloat('reduction', 'apsum_radius'))
+            wltrim_frac=self.cfg.getfloat('reduction', 'wltrim_frac'))
 
 
 def filecheck(dic, cat):
