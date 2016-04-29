@@ -11,6 +11,7 @@ import argparse
 import json
 import subprocess
 from distutils.sysconfig import get_python_lib
+from merges import merge_cubes
 
 
 def get_git_hash(git_dir, short=True):
@@ -368,6 +369,25 @@ class pipeline():
             fl_gscrrej=self.cfg.getboolean('reduction', 'fl_gscrrej'),
             wltrim_frac=self.cfg.getfloat('reduction', 'wltrim_frac'))
 
+    def merge(self, sciobj, name):
+
+        os.chdir(self.run_dir)
+
+        # Read some keywords. Some of them can be read in step 0.
+        prefix = 'dcstexlprg'
+        imgcube = [prefix + sci['image'] for sci in sciobj]
+        xoff = [pf.getval(img, ext=0, keyword='xoffset') for img in imgcube]
+        yoff = [pf.getval(img, ext=0, keyword='yoffset') for img in imgcube]
+        crv3 = [pf.getval(img, ext=1, keyword='crval3') for img in imgcube]
+        cd3 = [pf.getval(img, ext=1, keyword='cdelt3') for img in imgcube]
+        cd1 = [abs(pf.getval(img, ext=1, keyword='cdelt1')) for img in imgcube]
+
+        merge_cubes(
+            rawdir=self.raw_dir, rundir=self.run_dir,
+            giredsdir=self.gireds_dir, name=name,
+            observatory=sciobj[0]['observatory'], imgcube=imgcube, xoff=xoff,
+            yoff=yoff, crval3=crv3, cdelt3=cd3, cdelt1=cd1)
+
 
 def filecheck(dic, cat):
 
@@ -525,4 +545,55 @@ def main():
                             'ERROR! An error ocurred when trying to reduce '
                             'the galaxy {:s}. Check logfile for more '
                             'information.'.format(sci),
+                            logfile=logfile, verbose='yes')
+
+        if (pip.reduction_step == 3) or\
+                ((pip.single_step is False) and (pip.reduction_step >= 3)):
+
+            iraf.printlog(ver_stamp, logfile=logfile, verbose='yes')
+
+            os.chdir(pip.run_dir)
+            iraf.printlog(
+                'Starting reduction step 3 on directory {:s}\n'
+                .format(os.getcwd()), logfile=logfile, verbose='yes')
+
+            r = open('file_associations_sci.dat', 'r').read()
+            pip.sci = eval(r)
+            r = open('file_associations_std.dat', 'r').read()
+            pip.std = eval(r)
+
+            # List of objects
+            listname = [(sci['object'].lower()).replace(' ', '')
+                        for sci in pip.sci]
+            sciname = list(set(listname))
+
+            for name in sciname:
+                sciobj = [sci for m, sci in enumerate(pip.sci) if
+                          listname[m] == name]
+
+                # Prefix may change
+                prefix = 'dcstexlprg'
+                cubes = np.array([
+                    True if os.path.isfile(prefix + sci['image'])
+                    else False for sci in sciobj])
+
+                if not cubes.all():
+                    iraf.printlog(
+                        ('ERROR! Object {:s} does not have all the necessary\n'
+                         'cube files.')
+                        .format(name), logfile=logfile, verbose='yes')
+                    iraf.printlog(
+                        'Skipping {:s}.'.format(name),
+                        logfile=logfile, verbose='yes')
+                    continue
+                else:
+                    try:
+                        pip.merge(sciobj, name)
+                    except Exception as err:
+                        iraf.printlog(
+                            err.__repr__(), logfile=logfile, verbose='yes')
+                        iraf.printlog(
+                            'ERROR! An error ocurred when trying to merge '
+                            'the galaxy {:s}. Check logfile for more '
+                            'information.'.format(name),
                             logfile=logfile, verbose='yes')
