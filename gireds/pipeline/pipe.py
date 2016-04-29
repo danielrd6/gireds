@@ -11,6 +11,7 @@ import argparse
 import json
 import subprocess
 from distutils.sysconfig import get_python_lib
+from merges import merge_cubes
 
 
 def get_git_hash(git_dir, short=True):
@@ -368,6 +369,25 @@ class pipeline():
             fl_gscrrej=self.cfg.getboolean('reduction', 'fl_gscrrej'),
             wltrim_frac=self.cfg.getfloat('reduction', 'wltrim_frac'))
 
+    def merge(self, sciobj, name):
+
+        os.chdir(self.run_dir)
+
+        # Read some keywords. Some of them can be read in step 0. -- Improve
+        # But other need information that were added during the step 2.
+        prefix = 'dcstexlprg'
+        imgcube = [prefix + sci['image'] for sci in sciobj]
+        xoff = [pf.getval(img, ext=0, keyword='xoffset') for img in imgcube]
+        yoff = [pf.getval(img, ext=0, keyword='yoffset') for img in imgcube]
+        crv3 = [pf.getval(img, ext=1, keyword='crval3') for img in imgcube]
+        cd3 = [pf.getval(img, ext=1, keyword='cdelt3') for img in imgcube]
+        cd1 = [abs(pf.getval(img, ext=1, keyword='cdelt1')) for img in imgcube]
+       
+        merge_cubes(
+            rawdir=self.raw_dir, rundir=self.run_dir, 
+            giredsdir=self.gireds_dir, name=name,
+            observatory=sciobj[0]['observatory'], imgcube=imgcube, xoff=xoff,
+            yoff=yoff, crval3=crv3, cdelt3=cd3, cdelt1=cd1)
 
 def filecheck(dic, cat):
 
@@ -551,6 +571,7 @@ def main():
                 sciobj = [sci for m, sci in enumerate(pip.sci) if \
                     listname[m] == name]
 
+                prefix = 'dcstexlprg' # May change
                 cubes = np.array([
                     True if os.path.isfile('dcstexlprg' + sci['image']) \
                     else False for sci in sciobj])
@@ -566,9 +587,11 @@ def main():
                     continue
                 else:
                     try:
-                        print "Not implement yet."
-                        #merge(sciobj)
-                        continue
+                        print "Implementing."
+                        # ### Trying to reproduce what other steps do
+                        # Probably not the better way to do it
+                        pip.merge(sciobj, name)
+                        #continue
                     except Exception as err:
                         iraf.printlog(
                             err.__repr__(), logfile=logfile, verbose='yes')
