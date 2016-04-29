@@ -526,3 +526,55 @@ def main():
                             'the galaxy {:s}. Check logfile for more '
                             'information.'.format(sci),
                             logfile=logfile, verbose='yes')
+
+        if (pip.reduction_step == 3) or\
+                ((pip.single_step is False) and (pip.reduction_step >= 3)):
+
+            iraf.printlog(ver_stamp, logfile=logfile, verbose='yes')
+
+            os.chdir(pip.run_dir)
+            iraf.printlog(
+                'Starting reduction step 3 on directory {:s}\n'
+                .format(os.getcwd()), logfile=logfile, verbose='yes')
+
+            r = file('file_associations_sci.dat', 'r').read()
+            pip.sci = eval(r)
+            r = file('file_associations_std.dat', 'r').read()
+            pip.std = eval(r)
+            
+            # List of objects (TMP --> Improve)
+            listname = [(sci['object'].lower()).replace(' ', '') \
+                for sci in pip.sci]
+            sciname = list(set(listname))
+
+            for name in sciname:
+                sciobj = [sci for m, sci in enumerate(pip.sci) if \
+                    listname[m] == name]
+
+                cubes = np.array([
+                    True if os.path.isfile('dcstexlprg' + sci['image']) \
+                    else False for sci in sciobj])
+
+                if not cubes.all():
+                    iraf.printlog(
+                        ('ERROR! Object {:s} does not have all the necessary\n'
+                         'cube files.')
+                        .format(name), logfile=logfile, verbose='yes')
+                    iraf.printlog(
+                        'Skipping {:s}.'.format(name),
+                        logfile=logfile, verbose='yes')
+                    continue
+                else:
+                    try:
+                        print "Not implement yet."
+                        #merge(sciobj)
+                        continue
+                    except Exception as err:
+                        iraf.printlog(
+                            err.__repr__(), logfile=logfile, verbose='yes')
+                        iraf.printlog(
+                            'ERROR! An error ocurred when trying to merge '
+                            'the galaxy {:s}. Check logfile for more '
+                            'information.'.format(name),
+                            logfile=logfile, verbose='yes')
+                
