@@ -16,15 +16,36 @@ from pyraf import iraf
 import numpy as np
 import pyfits as pf
 
+
 def merge_cubes(rawdir, rundir, giredsdir, name, observatory, imgcube, xoff,
-        yoff, crval3, cdelt3, cdelt1):
+                yoff, crval3, cdelt3, cdelt1):
     """
     Merge cubes.
 
     Parameters
     ----------
-
-
+    rawdir: string
+        Directory containing raw images.
+    rundir: string
+        Directory where processed files are saved.
+    giredsdir: string
+        Directory containing gireds files.
+    name: string
+        Name of the object.
+    observatory: string
+        Gemini-South/Gemini-North.
+    imgcube: list of strings
+        Cube file for each object cube.
+    xoff: list of floats
+        x-offset for each object cube.
+    yoff: list of floats
+        y-offset for each object cube.
+    crval3: list of floats
+        crval3 for each object cube.
+    cdelt3: list of floats
+        cdelt3 for each object cube.
+    cdelt1: list of floats
+        cdelt1 for each object cube.
     """
 
     iraf.set(stdimage='imtgmos')
@@ -53,9 +74,8 @@ def merge_cubes(rawdir, rundir, giredsdir, name, observatory, imgcube, xoff,
     #
     nCubes = len(imgcube)
 
-    #### Maybe does not need to create this files --- Improve
-    in_filesSCI = 'files_' + name +  '_SCI'
-    in_filesVAR = 'files_' + name +  '_VAR'
+    in_filesSCI = 'files_' + name + '_SCI'
+    in_filesVAR = 'files_' + name + '_VAR'
     in_offset = 'offsets_' + name
 
     with open(in_filesSCI, 'w') as f:
@@ -66,7 +86,7 @@ def merge_cubes(rawdir, rundir, giredsdir, name, observatory, imgcube, xoff,
             f.write(rundir + img + '[2]' + '\n')
 
     # Invert (x,y)offsets if in gemini-north
-    sign = -1 if (observatory.lower == 'gemini-north') else 1
+    sign = -1 if (observatory.lower() == 'gemini-north') else 1
     with open(in_offset, 'w') as f:
         for k in range(nCubes):
             f.write("{:.5f} {:.5f} {:.5f}\n".format(
@@ -82,13 +102,11 @@ def merge_cubes(rawdir, rundir, giredsdir, name, observatory, imgcube, xoff,
     out_sci = name + '_SCI.fits'
     out_var = name + '_VAR.fits'
     out_sigIN = name + '_SIGIN.fits'
-    # The outputs rej/exp files will be '.pl'. Change to fits later.
-    out_rej = name + '_REJ'
     out_exp = name + '_EXP'
 
     # Convert DQ extension to 'pl' and add the its filename to 'bpm' key
-    #### Change to other key. (Other rotines use this key)
-    #### Change also the key for bpm used by 'fixpix'
+    # --- Change to other key. (Other rotines use this key) - Improve
+    # --- Change also the key for bpm used by 'fixpix' ------ Improve
     out_dqPL = [img[:-5] + '_DQ.pl' for img in imgcube]
 
     for k in range(nCubes):
@@ -101,11 +119,9 @@ def merge_cubes(rawdir, rundir, giredsdir, name, observatory, imgcube, xoff,
     #   Merge sci/var cubes
     #
     iraf.imcombine("@" + in_filesSCI, out_sci, offsets=in_offset,
-        combine='average', reject='avsigclip', masktype='goodvalue',
-        maskvalue=0, rejmasks=out_rej, expmasks=out_exp,
-        sigmas=out_sigIN)
+        combine='average', reject='none', masktype='goodvalue',
+        maskvalue=0, expmasks=out_exp, sigmas=out_sigIN)
 
-    # --- In future, use '*REJ.pl' information as bpm mask for var -- Improve
     iraf.imcombine("@" + in_filesVAR, out_var, offsets=in_offset,
         combine='sum', reject='none', masktype='goodvalue',
         maskvalue=0)
@@ -113,8 +129,6 @@ def merge_cubes(rawdir, rundir, giredsdir, name, observatory, imgcube, xoff,
     #
     #   Criate correct error cube
     #
-    ##### In future, may combine err with sigIN (sig of input cube)
-    iraf.imcopy(out_rej + '.pl', out_rej.replace('.pl', '.fits'))
     iraf.imcopy(out_exp + '.pl', out_exp.replace('.pl', '.fits'))
 
     # Read cubes
@@ -131,29 +145,14 @@ def merge_cubes(rawdir, rundir, giredsdir, name, observatory, imgcube, xoff,
     #
     #   Criate hypercube
     #
-    ### Maybe don't need each header information
+    # ---- Maybe don't need header for each extension -- Improve
     pry = pf.PrimaryHDU(header=pf.getheader(out_sci))
-    hdu1 = pf.ImageHDU(sci_cube , header=pf.getheader(out_sci), name='SCI')
-    hdu2 = pf.ImageHDU(err_cube , header=pf.getheader(out_var), name='ERR')
-    hdu4 = pf.ImageHDU(sigIN_cube , header=pf.getheader(out_sigIN), 
+    hdu1 = pf.ImageHDU(sci_cube, header=pf.getheader(out_sci), name='SCI')
+    hdu2 = pf.ImageHDU(err_cube, header=pf.getheader(out_var), name='ERR')
+    hdu4 = pf.ImageHDU(sigIN_cube, header=pf.getheader(out_sigIN),
         name='SIG_IN')
-    hdu3 = pf.ImageHDU(exp_cube , header=pf.getheader(out_exp + '.fits'),
+    hdu3 = pf.ImageHDU(exp_cube, header=pf.getheader(out_exp + '.fits'),
         name='NCUBE')
 
     hdu = pf.HDUList([pry, hdu1, hdu2, hdu3, hdu4])
     hdu.writeto(name + '_HYPERCUBE.fits')
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
