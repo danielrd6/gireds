@@ -140,8 +140,16 @@ class pipeline():
         l = glob.glob('*.fits')
         l.sort()
 
-        headers = [pf.getheader(i, ext=0) for i in l]
-        headers_ext1 = [pf.getheader(i, ext=1) for i in l]
+        headers = []
+        headers_ext1 = []
+        for i in l:
+            try:
+                headers.append(pf.getheader(i, ext=0))
+                headers_ext1.append(pf.getheader(i, ext=1))
+            except IOError:
+                print('IOError reading file {:s}.'.format(i))
+                raise SystemExit(0)
+
         mjds = [i['mjd-obs'] for i in headers_ext1]
         idx = np.arange(len(l))
 
