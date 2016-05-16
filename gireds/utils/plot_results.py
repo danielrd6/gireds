@@ -72,7 +72,7 @@ def plot_summary(cube_file, savefigs=True, img_format='pdf'):
     axim = plt.subplot(gs[0])
     axspec = plt.subplot(gs[1])
 
-    axim.imshow(np.median(cube, 0), interpolation='none')
+    axim.imshow(np.sum(cube, 0), interpolation='none')
 
     wl = st.get_wl(
         cube_file, hdrext=1, dataext=1, dimension=0, pix0key='crpix3',
