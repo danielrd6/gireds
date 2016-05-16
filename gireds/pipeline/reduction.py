@@ -14,6 +14,7 @@ from pyraf import iraf
 import numpy as np
 import pyfits as pf
 import os
+import pdb
 
 
 def wl_lims(image, trim_fraction=0.02):
@@ -368,7 +369,7 @@ def apertures(flat, vardq, mdffile, overscan, instrument, slits, giredsdir):
             # It should be note that this correction may not work every time.
             # *****      vericar se o erro nao ocorre no aperg 2 tb     ******
             # *****      talvez fosse melhor retirar essas linhas       ******
-            with open(giredsdir + '/data/excepcional_apertures.dat', 'r') as f:
+            with open(giredsdir + 'data/excepcional_apertures.dat', 'r') as f:
                 lines = f.readlines()
             fix_No = [int(i.split()[1]) for i in lines if flat in i]
             if (mdf['slits'] == 'red' or mdf['slits'] == 'both') and\

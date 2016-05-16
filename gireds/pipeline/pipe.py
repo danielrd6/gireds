@@ -4,13 +4,14 @@ import os
 import ConfigParser
 import time
 import glob
-from standard_star import reduce_stdstar
+import standard_star
+# from standard_star import reduce_stdstar
 from galaxy import reduce_science
 from pyraf import iraf
 import argparse
 import json
 import subprocess
-from distutils.sysconfig import get_python_lib
+# from distutils.sysconfig import get_python_lib
 from merges import merge_cubes
 
 
@@ -87,7 +88,7 @@ class pipeline():
 
         self.cfg = config
 
-        self.gireds_dir = get_python_lib() + '/gireds/'
+        self.gireds_dir = standard_star.__file__[:-26]
         # self.version = get_git_hash(self.gireds_dir)
         self.version = '0.1.0'
 
@@ -99,7 +100,7 @@ class pipeline():
         self.single_step = config.getboolean('main', 'single_step')
 
         # self.starinfo_file = config.get('associations', 'starinfo_file')
-        self.starinfo_file = get_python_lib() + '/gireds/data/starinfo.dat'
+        self.starinfo_file = self.gireds_dir + 'data/starinfo.dat'
 
         self.lacos_file = config.get('third_party', 'lacos_file')
         self.apply_lacos = config.getboolean('reduction', 'apply_lacos')
@@ -345,7 +346,7 @@ class pipeline():
 
     def stdstar(self, dic):
 
-        reduce_stdstar(
+        standard_star.reduce_stdstar(
             rawdir=self.raw_dir, rundir=self.run_dir, caldir=dic['caldir'],
             starobj=dic['object'], stdstar=dic['stdstar'], flat=dic['flat'],
             arc=dic['arc'], twilight=dic['twilight'], starimg=dic['image'],
