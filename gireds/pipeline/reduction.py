@@ -15,6 +15,7 @@ import numpy as np
 import pyfits as pf
 import os
 import pdb
+import pkg_resources
 
 
 def wl_lims(image, trim_fraction=0.02):
@@ -72,7 +73,7 @@ def wl_lims(image, trim_fraction=0.02):
 
 
 def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
-                  vardq, instrument, slits, giredsdir, wltrim_frac=0.03):
+                  vardq, instrument, slits, wltrim_frac=0.03):
     """
     Reduction pipeline for basic calibration images.
 
@@ -143,7 +144,7 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
             reference='', recenter='yes', fl_vardq=vardq)
 
         # Apertures
-        apertures(flat, vardq, mdffile, overscan, instrument, slits, giredsdir)
+        apertures(flat, vardq, mdffile, overscan, instrument, slits)
 
     #
     #   The twilight always has to match exactly the extraction of the
@@ -214,7 +215,7 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
             w1=wl1, w2=wl2)
 
 
-def apertures(flat, vardq, mdffile, overscan, instrument, slits, giredsdir):
+def apertures(flat, vardq, mdffile, overscan, instrument, slits):
     """
     Check the aperture solutions from GFEXTRACT and try to fix the
     problems if it's the case.
@@ -369,7 +370,9 @@ def apertures(flat, vardq, mdffile, overscan, instrument, slits, giredsdir):
             # It should be note that this correction may not work every time.
             # *****      vericar se o erro nao ocorre no aperg 2 tb     ******
             # *****      talvez fosse melhor retirar essas linhas       ******
-            with open(giredsdir + 'data/excepcional_apertures.dat', 'r') as f:
+            excep_ap = pkg_resources.resource_filename(
+                'gireds', 'data/exceptional_apertures.dat')
+            with open(excep_ap, 'r') as f:
                 lines = f.readlines()
             fix_No = [int(i.split()[1]) for i in lines if flat in i]
             if (mdf['slits'] == 'red' or mdf['slits'] == 'both') and\

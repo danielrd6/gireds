@@ -61,7 +61,7 @@ def circular_aperture(image, radius=1):
 def reduce_stdstar(
         rawdir, rundir, caldir, starobj, stdstar, flat, arc, twilight,
         starimg, bias, overscan, vardq, lacos, observatory, apply_lacos,
-        lacos_xorder, lacos_yorder, bpm, instrument, slits, giredsdir,
+        lacos_xorder, lacos_yorder, bpm, instrument, slits,
         fl_gscrrej, wltrim_frac=0.03, sens_order=6, sens_function='spline3',
         apsum_radius=1):
     """
@@ -129,7 +129,7 @@ def reduce_stdstar(
     cal_reduction(
         rawdir=rawdir, rundir=rundir, flat=flat, arc=arc, twilight=twilight,
         bias=bias, bpm=bpm, overscan=overscan, vardq=vardq,
-        instrument=instrument, slits=slits, giredsdir=giredsdir)
+        instrument=instrument, slits=slits)
     #
     #   Actually reduce star
     #

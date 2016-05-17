@@ -5,6 +5,7 @@ import ConfigParser
 import time
 import glob
 import standard_star
+import pkg_resources
 # from standard_star import reduce_stdstar
 from galaxy import reduce_science
 from pyraf import iraf
@@ -88,7 +89,7 @@ class pipeline():
 
         self.cfg = config
 
-        self.gireds_dir = standard_star.__file__[:-26]
+        self.gireds_dir = pkg_resources.resource_filename('gireds', '')
         # self.version = get_git_hash(self.gireds_dir)
         self.version = '0.1.0'
 
@@ -100,7 +101,8 @@ class pipeline():
         self.single_step = config.getboolean('main', 'single_step')
 
         # self.starinfo_file = config.get('associations', 'starinfo_file')
-        self.starinfo_file = self.gireds_dir + 'data/starinfo.dat'
+        self.starinfo_file = pkg_resources.resource_filename(
+            'gireds', 'data/starinfo.dat')
 
         self.lacos_file = config.get('third_party', 'lacos_file')
         self.apply_lacos = config.getboolean('reduction', 'apply_lacos')
@@ -356,7 +358,6 @@ class pipeline():
             lacos_xorder=self.cfg.getint('reduction', 'lacos_xorder'),
             lacos_yorder=self.cfg.getint('reduction', 'lacos_yorder'),
             bpm=dic['bpm'], slits=dic['slits'],
-            giredsdir=self.gireds_dir,
             fl_gscrrej=self.cfg.getboolean('reduction', 'fl_gscrrej'),
             wltrim_frac=self.cfg.getfloat('reduction', 'wltrim_frac'),
             sens_order=self.cfg.getint('reduction', 'sens_order'),
@@ -374,7 +375,7 @@ class pipeline():
             lacos_xorder=self.cfg.getint('reduction', 'lacos_xorder'),
             lacos_yorder=self.cfg.getint('reduction', 'lacos_yorder'),
             bpm=dic['bpm'], slits=dic['slits'],
-            instrument=dic['instrument'], giredsdir=self.gireds_dir,
+            instrument=dic['instrument'],
             fl_gscrrej=self.cfg.getboolean('reduction', 'fl_gscrrej'),
             wltrim_frac=self.cfg.getfloat('reduction', 'wltrim_frac'))
 

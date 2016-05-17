@@ -21,7 +21,7 @@ from reduction import cal_reduction, wl_lims
 def reduce_science(rawdir, rundir, flat, arc, twilight, sciimg,
                    starimg, bias, overscan, vardq, observatory, lacos,
                    apply_lacos, lacos_xorder, lacos_yorder, bpm, instrument,
-                   slits, giredsdir, fl_gscrrej, wltrim_frac):
+                   slits, fl_gscrrej, wltrim_frac):
     """
     Reduction pipeline for standard star.
 
@@ -89,7 +89,7 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, sciimg,
     cal_reduction(
         rawdir=rawdir, rundir=rundir, flat=flat, arc=arc, twilight=twilight,
         bias=bias, bpm=bpm, overscan=overscan, vardq=vardq,
-        instrument=instrument, slits=slits, giredsdir=giredsdir)
+        instrument=instrument, slits=slits)
     #
     #   Actually reduce science
     #
