@@ -167,13 +167,16 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
     iraf.gemfix('rg' + twilight, out='prg' + twilight, method='fixpix',
                 bitmask=1)
 
+    gwl = iraf.hselect('prg' + flat + '.fits[0]', 'grwlen', 'yes', Stdout=1)[0]
+    iraf.hedit('prg' + twilight + '.fits[0]', 'grwlen', gwl, verify='no')
+
     iraf.gfreduce(
         'prg' + twilight, slits='header', rawpath='./', fl_inter='no',
         fl_addmdf='no', key_mdf='MDF', mdffile=mdffile, weights='no',
-        fl_over='no', fl_trim='no', fl_bias='no', trace='yes',
+        fl_over='no', fl_trim='no', fl_bias='no', trace='no',
         t_order=4, fl_flux='no', fl_gscrrej='no', fl_extract='yes',
         fl_gsappwave='no', fl_wavtran='no', fl_novl='no', fl_skysub='no',
-        reference='eprg' + flat, recenter='no', fl_vardq=vardq)
+        reference='eprg' + flat, recenter='yes', fl_vardq=vardq)
 
     #
     #   Response function

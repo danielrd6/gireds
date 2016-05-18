@@ -1,11 +1,13 @@
 import pyfits as pf
 import numpy as np
 import os
+from os.path import isfile
 import ConfigParser
 import time
 import glob
 import standard_star
 import pkg_resources
+import pdb
 # from standard_star import reduce_stdstar
 from galaxy import reduce_science
 from pyraf import iraf
@@ -366,18 +368,29 @@ class pipeline():
 
     def science(self, dic):
 
-        reduce_science(
-            rawdir=self.raw_dir, rundir=self.run_dir, flat=dic['flat'],
-            arc=dic['arc'], twilight=dic['twilight'], sciimg=dic['image'],
-            starimg=dic['standard_star'], bias=dic['bias'],
-            overscan=self.fl_over, vardq=self.fl_vardq, lacos=self.lacos_file,
-            observatory=dic['observatory'], apply_lacos=self.apply_lacos,
-            lacos_xorder=self.cfg.getint('reduction', 'lacos_xorder'),
-            lacos_yorder=self.cfg.getint('reduction', 'lacos_yorder'),
-            bpm=dic['bpm'], slits=dic['slits'],
-            instrument=dic['instrument'],
-            fl_gscrrej=self.cfg.getboolean('reduction', 'fl_gscrrej'),
-            wltrim_frac=self.cfg.getfloat('reduction', 'wltrim_frac'))
+        if self.apply_lacos:
+            prefix = 'dcstexlprg'
+        else:
+            prefix = 'dcstexprg'
+
+        # pdb.set_trace()
+        outfile = self.run_dir + prefix + dic['image']
+        if not isfile(outfile):
+            reduce_science(
+                rawdir=self.raw_dir, rundir=self.run_dir, flat=dic['flat'],
+                arc=dic['arc'], twilight=dic['twilight'], sciimg=dic['image'],
+                starimg=dic['standard_star'], bias=dic['bias'],
+                overscan=self.fl_over, vardq=self.fl_vardq,
+                lacos=self.lacos_file,
+                observatory=dic['observatory'], apply_lacos=self.apply_lacos,
+                lacos_xorder=self.cfg.getint('reduction', 'lacos_xorder'),
+                lacos_yorder=self.cfg.getint('reduction', 'lacos_yorder'),
+                bpm=dic['bpm'], slits=dic['slits'],
+                instrument=dic['instrument'],
+                fl_gscrrej=self.cfg.getboolean('reduction', 'fl_gscrrej'),
+                wltrim_frac=self.cfg.getfloat('reduction', 'wltrim_frac'))
+        else:
+            print('Skipping {:s}.'.format(outfile))
 
     def merge(self, sciobj, name):
 
