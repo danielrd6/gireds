@@ -406,8 +406,7 @@ class pipeline():
         cd1 = [abs(pf.getval(img, ext=1, keyword='cdelt1')) for img in imgcube]
 
         merge_cubes(
-            rawdir=self.raw_dir, rundir=self.run_dir,
-            giredsdir=self.gireds_dir, name=name,
+            rawdir=self.raw_dir, rundir=self.run_dir, name=name,
             observatory=sciobj[0]['observatory'], imgcube=imgcube, xoff=xoff,
             yoff=yoff, crval3=crv3, cdelt3=cd3, cdelt1=cd1)
 
