@@ -422,6 +422,9 @@ def main():
     parser.add_argument('-v', '--verbose', help='Prints the dictionary of '
                         'file associations.', action='store_true')
     parser.add_argument('config_file', help='Configuration file for GIREDS')
+    parser.add_argument('--incremental', help='Skip already reduced cubes',
+                        action='store_true')
+                        
     args = parser.parse_args()
 
     if args.check:
