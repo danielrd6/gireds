@@ -615,9 +615,17 @@ def apertures(flat, vardq, mdffile, overscan, instrument, slits):
                 fl_skysub='no', reference='', recenter='yes', fl_vardq=vardq)
 
     # Copy mdf used by flat.
-    # File 'gsifu_slits_mdf.fits' is used as base (arbitrarily choosed)
-    mdfFits = pf.open(
-        iraf.show('gemini', Stdout=1)[0] + 'gmos/data/gsifu_slits_mdf.fits')
+    # File 'gsifu_slits_mdf.fits' is used as base (arbitrarily chosen)
+    # pdb.set_trace()
+    if 'UR_DIR_PKG' in iraf.envget('gemini'):
+        mdfFits = pf.open(
+            iraf.envget('UR_DIR_PKG') +
+            iraf.envget('gemini').replace('UR_DIR_PKG$/', '') +
+            'gmos/data/gsifu_slits_mdf.fits')
+    else:
+        mdfFits = pf.open(
+            iraf.envget('gemini') + 'gmos/data/gsifu_slits_mdf.fits')
+
     mdfFits[0].header['filename'] = mdffile
     mdfFlatData = pf.getdata('prg' + flat + '.fits', ext=mdfext)
     mdfFlatHeader = pf.getheader('prg' + flat + '.fits', ext=mdfext)

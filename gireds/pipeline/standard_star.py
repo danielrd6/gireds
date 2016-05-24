@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pyfits as pf
 from reduction import cal_reduction, wl_lims
+import pdb
 
 
 def circular_aperture(image, radius=1):

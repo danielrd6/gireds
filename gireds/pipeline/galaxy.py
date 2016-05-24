@@ -16,6 +16,7 @@ from pyraf import iraf
 # import numpy as np
 # import pyfits as pf
 from reduction import cal_reduction, wl_lims
+import pdb
 
 
 def reduce_science(rawdir, rundir, flat, arc, twilight, sciimg,
