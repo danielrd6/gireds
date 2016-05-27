@@ -598,6 +598,14 @@ def main():
             sciname = list(set(listname))
 
             for name in sciname:
+
+                sufix = '_HYPERCUBE.fits'
+                cube_file = pip.run_dir + name + sufix
+                if args.incremental and isfile(cube_file):
+                    print('Skipping already reduced cube {:s}{:s}'.format(
+                        name, sufix))
+                    continue
+
                 sciobj = [sci for m, sci in enumerate(pip.sci) if
                           listname[m] == name]
 
