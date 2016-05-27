@@ -381,13 +381,12 @@ class pipeline():
             fl_gscrrej=self.cfg.getboolean('reduction', 'fl_gscrrej'),
             wltrim_frac=self.cfg.getfloat('reduction', 'wltrim_frac'))
 
-    def merge(self, sciobj, name):
+    def merge(self, sciobj, name, cube_prefix):
 
         os.chdir(self.run_dir)
 
         # Read some keywords. Some of them can be read in step 0.
-        prefix = 'dcstexlprg'
-        imgcube = [prefix + sci['image'] for sci in sciobj]
+        imgcube = [cube_prefix + sci['image'] for sci in sciobj]
         xoff = [pf.getval(img, ext=0, keyword='xoffset') for img in imgcube]
         yoff = [pf.getval(img, ext=0, keyword='yoffset') for img in imgcube]
         crv3 = [pf.getval(img, ext=1, keyword='crval3') for img in imgcube]
@@ -422,6 +421,9 @@ def main():
     parser.add_argument('-v', '--verbose', help='Prints the dictionary of '
                         'file associations.', action='store_true')
     parser.add_argument('config_file', help='Configuration file for GIREDS')
+    parser.add_argument('--incremental', help='Skip already reduced cubes',
+                        action='store_true')
+
     args = parser.parse_args()
 
     if args.check:
@@ -450,6 +452,11 @@ def main():
         iraf.gemtools()
         iraf.unlearn('gemtools')
         pip = pipeline(args.config_file)
+
+        if pip.apply_lacos:
+            cube_prefix = 'dcstexlprg'
+        else:
+            cube_prefix = 'dcstexprg'
 
         ver_stamp = (50 * '#' + '\n' + 'GIREDS version hash: ' + pip.version +
                      '\n' + 50 * '#' + '\n')
@@ -487,6 +494,12 @@ def main():
             cal_categories = np.array(['bias', 'flat', 'twilight', 'arc'])
 
             for star in pip.std:
+
+                cube_file = pip.run_dir + cube_prefix + star['image']
+                if args.incremental and isfile(cube_file):
+                    print('Skipping already reduced cube {:s}{:s}'.format(
+                        cube_prefix, star['image']))
+                    continue
 
                 cal = np.array([
                     True if star[i] != '' else False for i in cal_categories])
@@ -532,6 +545,12 @@ def main():
                 'bias', 'flat', 'twilight', 'arc', 'standard_star'])
 
             for sci in pip.sci:
+
+                cube_file = pip.run_dir + cube_prefix + sci['image']
+                if args.incremental and isfile(cube_file):
+                    print('Skipping already reduced cube {:s}{:s}'.format(
+                        cube_prefix, sci['image']))
+                    continue
 
                 cal = np.array([
                     True if sci[i] != '' else False for i in cal_categories])
@@ -579,13 +598,20 @@ def main():
             sciname = list(set(listname))
 
             for name in sciname:
+
+                sufix = '_HYPERCUBE.fits'
+                cube_file = pip.run_dir + name + sufix
+                if args.incremental and isfile(cube_file):
+                    print('Skipping already reduced cube {:s}{:s}'.format(
+                        name, sufix))
+                    continue
+
                 sciobj = [sci for m, sci in enumerate(pip.sci) if
                           listname[m] == name]
 
                 # Prefix may change
-                prefix = 'dcstexlprg'
                 cubes = np.array([
-                    True if os.path.isfile(prefix + sci['image'])
+                    True if os.path.isfile(cube_prefix + sci['image'])
                     else False for sci in sciobj])
 
                 if not cubes.all():
@@ -599,7 +625,7 @@ def main():
                     continue
                 else:
                     try:
-                        pip.merge(sciobj, name)
+                        pip.merge(sciobj, name, cube_prefix)
                     except Exception as err:
                         iraf.printlog(
                             err.__repr__(), logfile=logfile, verbose='yes')
