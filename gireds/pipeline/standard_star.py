@@ -61,6 +61,7 @@ def circular_aperture(image, radius=1):
 
 def reduce_stdstar(
         rawdir, rundir, caldir, starobj, stdstar, flat, arc, twilight,
+        twilight_flat,
         starimg, bias, overscan, vardq, lacos, observatory, apply_lacos,
         lacos_xorder, lacos_yorder, bpm, instrument, slits,
         fl_gscrrej, wltrim_frac=0.03, sens_order=6, sens_function='spline3',
@@ -120,6 +121,7 @@ def reduce_stdstar(
 
     flat = flat.strip('.fits')
     twilight = twilight.strip('.fits')
+    twilight_flat = twilight_flat.strip('.fits')
     arc = arc.strip('.fits')
     starimg = starimg.strip('.fits')
 
@@ -130,7 +132,7 @@ def reduce_stdstar(
     cal_reduction(
         rawdir=rawdir, rundir=rundir, flat=flat, arc=arc, twilight=twilight,
         bias=bias, bpm=bpm, overscan=overscan, vardq=vardq,
-        instrument=instrument, slits=slits)
+        instrument=instrument, slits=slits, twilight_flat=twilight_flat)
     #
     #   Actually reduce star
     #
@@ -161,7 +163,7 @@ def reduce_stdstar(
         fl_gscrrej=fl_gscrrej, fl_extract='yes', fl_gsappwave='yes',
         fl_wavtran='no', fl_novl='no', fl_skysub='no',
         reference='eprg' + flat, weights='no', wavtraname='erg' + arc,
-        response='eprg' + flat + '_response.fits', fl_vardq=vardq)
+        response='eprg' + twilight + '_response.fits', fl_vardq=vardq)
     if fl_gscrrej:
         prefix = 'ex' + prefix
     else:
@@ -176,7 +178,7 @@ def reduce_stdstar(
         fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
         fl_wavtran='yes', fl_novl='no', fl_skysub='yes',
         reference='eprg' + flat, weights='no', wavtraname='erg' + arc,
-        response='eprg' + flat + '_response.fits', fl_vardq=vardq,
+        response='eprg' + twilight + '_response.fits', fl_vardq=vardq,
         w1=wl1, w2=wl2)
 
     prefix = 'st' + prefix

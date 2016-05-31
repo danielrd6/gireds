@@ -155,7 +155,10 @@ class pipeline():
                 print('IOError reading file {:s}.'.format(i))
                 raise SystemExit(0)
 
-        mjds = [i['mjd-obs'] for i in headers_ext1]
+        oversc = np.array(
+            [('overscan') in i for i in headers_ext1], dtype='bool')
+
+        mjds = np.array([i['mjd-obs'] for i in headers_ext1], dtype='float32')
         idx = np.arange(len(l))
 
         images = np.array([
@@ -164,6 +167,24 @@ class pipeline():
                 (headers[i]['object'] != 'Twilight') &
                 (headers[i]['obsclass'] != 'acq'))])
 
+        field_names = [
+            'filename', 'observatory', 'instrument', 'detector',
+            'grating', 'filter1', 'obsclass', 'object', 'obstype',
+            'grating_wl', 'overscan', 'mjd', 'ccdsum']
+        types = [
+            'S60', 'S60', 'S60', 'S60', 'S60', 'S60', 'S60', 'S60', 'S60',
+            'float32', 'bool', 'float32', 'S60']
+        hdrkeys = [
+            'observat', 'instrume', 'detector', 'grating', 'filter1',
+            'obsclass', 'object', 'obstype', 'grwlen']
+
+        hdrpars_type = [
+            (field_names[i], types[i]) for i in range(len(field_names))]
+
+        hdrpars = np.array([
+            ((l[i],) + tuple([headers[i][j] for j in hdrkeys]) +
+             (oversc[i],) + (mjds[i],) + (headers_ext1[i]['ccdsum'],))
+            for i in idx], dtype=hdrpars_type)
         associated = []
 
         for i, j in enumerate(images):
@@ -181,84 +202,99 @@ class pipeline():
                 'filter1': hdr['filter1'], 'obsclass': hdr['obsclass'],
                 'object': hdr['object']}
 
-            element['standard_star'] = [
-                l[k] for k in idx if (
-                    (headers[k]['obstype'] == 'OBJECT') &
-                    (headers[k]['obsclass'] in ['partnerCal', 'progCal']) &
-                    (headers[k]['object'] != 'Twilight') &
-                    (headers[k]['observat'] == hdr['observat']) &
-                    (headers[k]['detector'] == hdr['detector']) &
-                    (headers[k]['grating'] == hdr['grating']) &
-                    (headers[k]['filter1'] == hdr['filter1']) &
-                    (abs(headers[k]['grwlen'] - hdr['grwlen']) <=
-                        self.cfg.getfloat('associations', 'stdstar_wltol')) &
-                    (abs(mjds[k] - mjd) <=
-                        self.cfg.getfloat('associations', 'stdstar_ttol')))]
+            element['standard_star'] = hdrpars['filename'][
+                (hdrpars['obstype'] == 'OBJECT') &
+                (np.array([k in ['partnerCal', 'progCal']
+                           for k in hdrpars['obsclass']], dtype='bool')) &
+                (hdrpars['object'] != 'Twilight') &
+                (hdrpars['observatory'] == hdr['observat']) &
+                (hdrpars['detector'] == hdr['detector']) &
+                (hdrpars['grating'] == hdr['grating']) &
+                (hdrpars['filter1'] == hdr['filter1']) &
+                (abs(hdrpars['grating_wl'] - hdr['grwlen']) <=
+                    self.cfg.getfloat('associations', 'stdstar_wltol')) &
+                (abs(mjds - mjd) <=
+                    self.cfg.getfloat('associations', 'stdstar_ttol'))]
 
-            element['flat'] = [
-                l[k] for k in idx if (
-                    (headers[k]['obstype'] == 'FLAT') &
-                    (headers[k]['observat'] == hdr['observat']) &
-                    (headers[k]['grating'] == hdr['grating']) &
-                    (headers[k]['grwlen'] == hdr['grwlen']) &
-                    (headers[k]['detector'] == hdr['detector']) &
-                    (abs(mjds[k] - mjd) <= self.cfg.getfloat('associations',
-                                                             'flat_ttol')))]
+            element['flat'] = hdrpars['filename'][
+                (hdrpars['obstype'] == 'FLAT') &
+                (hdrpars['observatory'] == hdr['observat']) &
+                (hdrpars['grating'] == hdr['grating']) &
+                (hdrpars['grating_wl'] == hdr['grwlen']) &
+                (hdrpars['detector'] == hdr['detector']) &
+                (abs(mjds - mjd) <= self.cfg.getfloat('associations',
+                                                      'flat_ttol'))]
 
-            element['twilight'] = [
-                l[k] for k in idx if (
-                    (headers[k]['object'] == 'Twilight') &
-                    (headers[k]['obstype'] == 'OBJECT') &
-                    (headers[k]['observat'] == hdr['observat']) &
-                    (headers[k]['detector'] == hdr['detector']) &
-                    (headers[k]['grating'] == hdr['grating']) &
-                    (abs(headers[k]['grwlen'] - hdr['grwlen']) <=
-                        self.cfg.getfloat('associations', 'twilight_wltol')) &
-                    (abs(mjds[k] - mjd) <= self.cfg.getfloat(
-                        'associations', 'twilight_ttol')))]
+            element['twilight'] = hdrpars['filename'][
+                (hdrpars['object'] == 'Twilight') &
+                (hdrpars['obstype'] == 'OBJECT') &
+                (hdrpars['observatory'] == hdr['observat']) &
+                (hdrpars['detector'] == hdr['detector']) &
+                (hdrpars['grating'] == hdr['grating']) &
+                (abs(hdrpars['grating_wl'] - hdr['grwlen']) <=
+                    self.cfg.getfloat('associations', 'twilight_wltol')) &
+                (abs(mjds - mjd) <=
+                    self.cfg.getfloat('associations', 'twilight_ttol'))]
 
-            element['arc'] = [
-                l[k] for k in idx if (
-                    (headers[k]['object'] == 'CuAr') &
-                    (headers[k]['obstype'] == 'ARC') &
-                    (headers[k]['observat'] == hdr['observat']) &
-                    (headers[k]['detector'] == hdr['detector']) &
-                    (headers[k]['grating'] == hdr['grating']) &
-                    (headers[k]['grwlen'] == hdr['grwlen']) &
-                    (abs(mjds[k] - mjd) <= self.cfg.getfloat(
-                        'associations', 'arc_ttol')))]
+            c = 'twilight'
+            if len(element[c]) > 1:
+                element[c] = closest_in_time(element[c], j)
+            elif len(element[c]) == 1:
+                element[c] = element[c][0]
+            elif len(element[c]) == 0:
+                element[c] = ''
 
-            element['bias'] = [
-                l[k] for k in idx if (
-                    (headers[k]['obstype'] == 'BIAS') &
-                    (headers[k]['observat'] == hdr['observat']) &
-                    (headers[k]['detector'] == hdr['detector']) &
-                    (abs(mjds[k] - mjd) <= self.cfg.getfloat('associations',
-                                                             'bias_ttol')) &
-                    (
-                        (('overscan' in headers_ext1[k]) &
-                         (self.fl_over == 'yes')) or
-                        (('overscan' not in headers_ext1[k]) &
-                         (self.fl_over == 'no'))
-                    ))]
+            # A flat close to the twilight observation for a better
+            # response function.
+            if element['twilight']:
+                twipars = hdrpars[hdrpars['filename'] == element['twilight']]
+                element['twilight_flat'] = hdrpars['filename'][
+                    (hdrpars['obstype'] == 'FLAT') &
+                    (hdrpars['observatory'] == twipars['observatory']) &
+                    (hdrpars['detector'] == twipars['detector']) &
+                    (hdrpars['grating'] == twipars['grating']) &
+                    (hdrpars['grating_wl'] == twipars['grating_wl']) &
+                    (abs(mjds - twipars['mjd']) <= self.cfg.getfloat(
+                        'associations', 'twilight_ttol'))]
+            else:
+                element['twilight_flat'] = np.array([], dtype='S60')
 
-            element['bpm'] = [
-                l[k] for k in idx if (
-                    (headers[k]['obstype'] == 'BPM') &
-                    (headers[k]['observat'] == hdr['observat']) &
-                    (headers[k]['detector'] == hdr['detector']) &
-                    (headers_ext1[k]['ccdsum'] == hdr_ext1['ccdsum'])
-                    # (headers_ext1[k]['detsec'] == hdr_ext1['detsec'])
+            element['arc'] = hdrpars['filename'][
+                (hdrpars['object'] == 'CuAr') &
+                (hdrpars['obstype'] == 'ARC') &
+                (hdrpars['observatory'] == hdr['observat']) &
+                (hdrpars['detector'] == hdr['detector']) &
+                (hdrpars['grating'] == hdr['grating']) &
+                (hdrpars['grating_wl'] == hdr['grwlen']) &
+                (abs(mjds - mjd) <=
+                    self.cfg.getfloat('associations', 'arc_ttol'))]
+
+            element['bias'] = hdrpars['filename'][
+                (hdrpars['obstype'] == 'BIAS') &
+                (hdrpars['observatory'] == hdr['observat']) &
+                (hdrpars['detector'] == hdr['detector']) &
+                (abs(mjds - mjd) <=
+                    self.cfg.getfloat('associations', 'bias_ttol')) &
+                (
+                    (hdrpars['overscan'] & (self.fl_over == 'yes')) |
+                    (~hdrpars['overscan'] & (self.fl_over == 'no'))
                 )]
 
-            categories = ['flat', 'bias', 'arc', 'twilight', 'standard_star',
-                          'bpm']
+            element['bpm'] = hdrpars['filename'][
+                (hdrpars['obstype'] == 'BPM') &
+                (hdrpars['observatory'] == hdr['observat']) &
+                (hdrpars['detector'] == hdr['detector']) &
+                (hdrpars['ccdsum'] == hdr_ext1['ccdsum'])]
+
+            categories = ['flat', 'bias', 'arc', 'standard_star',
+                          'bpm', 'twilight_flat']
+
             for c in categories:
                 if len(element[c]) > 1:
                     element[c] = closest_in_time(element[c], j)
-                elif element[c] == []:
+                elif len(element[c]) == 0:
                     element[c] = ''
-                else:
+                elif len(element[c]) == 1:
                     element[c] = (element[c])[0]
 
             associated.append(element)
@@ -353,7 +389,8 @@ class pipeline():
         standard_star.reduce_stdstar(
             rawdir=self.raw_dir, rundir=self.run_dir, caldir=dic['caldir'],
             starobj=dic['object'], stdstar=dic['stdstar'], flat=dic['flat'],
-            arc=dic['arc'], twilight=dic['twilight'], starimg=dic['image'],
+            arc=dic['arc'], twilight=dic['twilight'],
+            twilight_flat=dic['twilight_flat'], starimg=dic['image'],
             bias=dic['bias'], overscan=self.fl_over, vardq=self.fl_vardq,
             lacos=self.lacos_file, observatory=dic['observatory'],
             apply_lacos=self.apply_lacos, instrument=dic['instrument'],
@@ -368,10 +405,10 @@ class pipeline():
 
     def science(self, dic):
 
-        # pdb.set_trace()
         reduce_science(
             rawdir=self.raw_dir, rundir=self.run_dir, flat=dic['flat'],
-            arc=dic['arc'], twilight=dic['twilight'], sciimg=dic['image'],
+            arc=dic['arc'], twilight=dic['twilight'],
+            twilight_flat=dic['twilight_flat'], sciimg=dic['image'],
             starimg=dic['standard_star'], bias=dic['bias'],
             overscan=self.fl_over, vardq=self.fl_vardq, lacos=self.lacos_file,
             observatory=dic['observatory'], apply_lacos=self.apply_lacos,
@@ -432,12 +469,14 @@ def main():
         pip.dry_run = True
         pip.associate_files()
 
-        cal_categories = np.array(['bias', 'flat', 'twilight', 'arc'])
+        cal_categories = np.array([
+            'bias', 'flat', 'twilight', 'arc', 'twilight_flat'])
 
         filecheck(pip.std, cal_categories)
 
         cal_categories = np.array([
-            'bias', 'flat', 'twilight', 'arc', 'standard_star'])
+            'bias', 'flat', 'twilight', 'arc', 'standard_star',
+            'twilight_flat'])
 
         filecheck(pip.sci, cal_categories)
 

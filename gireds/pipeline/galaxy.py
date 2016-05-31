@@ -16,10 +16,9 @@ from pyraf import iraf
 # import numpy as np
 # import pyfits as pf
 from reduction import cal_reduction, wl_lims
-import pdb
 
 
-def reduce_science(rawdir, rundir, flat, arc, twilight, sciimg,
+def reduce_science(rawdir, rundir, flat, arc, twilight, twilight_flat, sciimg,
                    starimg, bias, overscan, vardq, observatory, lacos,
                    apply_lacos, lacos_xorder, lacos_yorder, bpm, instrument,
                    slits, fl_gscrrej, wltrim_frac):
@@ -80,6 +79,7 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, sciimg,
 
     flat = flat.strip('.fits')
     twilight = twilight.strip('.fits')
+    twilight_flat = twilight_flat.strip('.fits')
     arc = arc.strip('.fits')
     starimg = starimg.strip('.fits')
     sciimg = sciimg.strip('.fits')
@@ -90,7 +90,7 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, sciimg,
     cal_reduction(
         rawdir=rawdir, rundir=rundir, flat=flat, arc=arc, twilight=twilight,
         bias=bias, bpm=bpm, overscan=overscan, vardq=vardq,
-        instrument=instrument, slits=slits)
+        instrument=instrument, slits=slits, twilight_flat=twilight_flat)
     #
     #   Actually reduce science
     #
@@ -122,7 +122,7 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, sciimg,
         fl_gscrrej=fl_gscrrej, fl_extract='yes', fl_gsappwave='yes',
         fl_wavtran='no', fl_novl='no', fl_skysub='no',
         reference='eprg' + flat, weights='no', wavtraname='erg' + arc,
-        response='eprg' + flat + '_response.fits', fl_vardq=vardq)
+        response='eprg' + twilight + '_response.fits', fl_vardq=vardq)
     if fl_gscrrej:
         prefix = 'ex' + prefix
     else:
@@ -139,7 +139,7 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, sciimg,
         fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
         fl_wavtran='yes', fl_novl='no', fl_skysub='yes',
         reference='eprg' + flat, weights='no', wavtraname='erg' + arc,
-        response='eprg' + flat + '_response.fits', fl_vardq=vardq,
+        response='eprg' + twilight + '_response.fits', fl_vardq=vardq,
         w1=wl1, w2=wl2)
 
     prefix = 'st' + prefix

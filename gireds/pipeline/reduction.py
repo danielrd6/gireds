@@ -14,8 +14,8 @@ from pyraf import iraf
 import numpy as np
 import pyfits as pf
 import os
-import pdb
 import pkg_resources
+import pdb
 
 
 def wl_lims(image, trim_fraction=0.02):
@@ -72,8 +72,8 @@ def wl_lims(image, trim_fraction=0.02):
     return wl0, wl1
 
 
-def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
-                  vardq, instrument, slits, wltrim_frac=0.03):
+def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
+                  bpm, overscan, vardq, instrument, slits, wltrim_frac=0.03):
     """
     Reduction pipeline for basic calibration images.
 
@@ -114,76 +114,74 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, bias, bpm, overscan,
 
     flat = flat.strip('.fits')
     twilight = twilight.strip('.fits')
+    twilight_flat = twilight_flat.strip('.fits')
     arc = arc.strip('.fits')
     iraf.gfreduce.bias = 'caldir$' + bias
     iraf.gireduce.bpm = 'rawdir$' + bpm
-    mdffile = 'mdf' + flat + '.fits'
 
     #
     #   Flat reduction
     #
-    if not os.path.isfile('eprg' + flat + '.fits'):
+    for i in [flat, twilight_flat]:
+        if not os.path.isfile('eprg' + i + '.fits'):
+
+            mdffile = 'mdf' + i + '.fits'
+            iraf.gfreduce(
+                i, slits='header', rawpath='rawdir$', fl_inter='no',
+                fl_addmdf='yes', key_mdf='MDF', mdffile='default',
+                weights='no', fl_over=overscan, fl_trim='yes', fl_bias='yes',
+                trace='no', fl_flux='no', fl_gscrrej='no', fl_extract='no',
+                fl_gsappwave='no', fl_wavtran='no', fl_novl='no',
+                fl_skysub='no', recenter='no', fl_vardq=vardq,
+                mdfdir='gmos$data/')
+
+            # Gemfix
+            iraf.gemfix('rg' + i, out='prg' + i, method='fixpix', bitmask=1)
+
+            iraf.gfreduce(
+                'prg' + i, slits='header', rawpath='./', fl_inter='no',
+                fl_addmdf='no', key_mdf='MDF', mdffile='default',
+                weights='no', fl_over='no', fl_trim='no', fl_bias='no',
+                trace='yes', t_order=4, fl_flux='no', fl_gscrrej='no',
+                fl_extract='yes', fl_gsappwave='no', fl_wavtran='no',
+                fl_novl='no', fl_skysub='no', reference='', recenter='yes',
+                fl_vardq=vardq)
+
+            # Apertures
+            apertures(i, vardq, mdffile, overscan, instrument, slits)
+
+    #
+    # Twilight
+    #
+    mdffile = 'mdf' + twilight_flat + '.fits'
+
+    if not os.path.isfile('eprg' + twilight + '.fits'):
+
         iraf.gfreduce(
-            flat, slits='header', rawpath='rawdir$', fl_inter='no',
-            fl_addmdf='yes', key_mdf='MDF', mdffile='default', weights='no',
+            twilight, slits='header', rawpath='rawdir$', fl_inter='no',
+            fl_addmdf='yes', key_mdf='MDF', mdffile=mdffile, weights='no',
             fl_over=overscan, fl_trim='yes', fl_bias='yes', trace='no',
             fl_flux='no', fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
             fl_wavtran='no', fl_novl='no', fl_skysub='no',
-            recenter='no', fl_vardq=vardq, mdfdir='gmos$data/')
+            recenter='no', fl_vardq=vardq, mdfdir='procdir$')
 
         # Gemfix
-        iraf.gemfix('rg' + flat, out='prg' + flat, method='fixpix',
+        iraf.gemfix('rg' + twilight, out='prg' + twilight, method='fixpix',
                     bitmask=1)
 
         iraf.gfreduce(
-            'prg' + flat, slits='header', rawpath='./', fl_inter='no',
-            fl_addmdf='no', key_mdf='MDF', mdffile='default', weights='no',
-            fl_over='no', fl_trim='no', fl_bias='no', trace='yes',
+            'prg' + twilight, slits='header', rawpath='./', fl_inter='no',
+            fl_addmdf='no', key_mdf='MDF', mdffile=mdffile, weights='no',
+            fl_over='no', fl_trim='no', fl_bias='no', trace='no',
             t_order=4, fl_flux='no', fl_gscrrej='no', fl_extract='yes',
             fl_gsappwave='no', fl_wavtran='no', fl_novl='no', fl_skysub='no',
-            reference='', recenter='yes', fl_vardq=vardq)
-
-        # Apertures
-        apertures(flat, vardq, mdffile, overscan, instrument, slits)
-
-    #
-    #   The twilight always has to match exactly the extraction of the
-    #   flat field image, therefore it must be re-reduced for every
-    #   new exposure requiring a flat.
-    #
-    if os.path.isfile('eprg' + twilight + '.fits'):
-        iraf.delete('*' + twilight + '.fits')
-        iraf.delete('./database/ap*' + twilight + '*')
-
-    iraf.gfreduce(
-        twilight, slits='header', rawpath='rawdir$', fl_inter='no',
-        fl_addmdf='yes', key_mdf='MDF', mdffile=mdffile, weights='no',
-        fl_over=overscan, fl_trim='yes', fl_bias='yes', trace='no',
-        fl_flux='no', fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
-        fl_wavtran='no', fl_novl='no', fl_skysub='no',
-        recenter='no', fl_vardq=vardq, mdfdir='procdir$')
-
-    # Gemfix
-    iraf.gemfix('rg' + twilight, out='prg' + twilight, method='fixpix',
-                bitmask=1)
-
-    gwl = iraf.hselect('prg' + flat + '.fits[0]', 'grwlen', 'yes', Stdout=1)[0]
-    iraf.hedit('prg' + twilight + '.fits[0]', 'grwlen', gwl, verify='no')
-
-    iraf.gfreduce(
-        'prg' + twilight, slits='header', rawpath='./', fl_inter='no',
-        fl_addmdf='no', key_mdf='MDF', mdffile=mdffile, weights='no',
-        fl_over='no', fl_trim='no', fl_bias='no', trace='no',
-        t_order=4, fl_flux='no', fl_gscrrej='no', fl_extract='yes',
-        fl_gsappwave='no', fl_wavtran='no', fl_novl='no', fl_skysub='no',
-        reference='eprg' + flat, recenter='yes', fl_vardq=vardq)
-
+            reference='eprg' + twilight_flat, recenter='yes', fl_vardq=vardq)
     #
     #   Response function
     #
-    if not os.path.isfile('eprg' + flat + '_response.fits'):
+    if not os.path.isfile('eprg' + twilight_flat + '_response.fits'):
         iraf.gfresponse(
-            'eprg' + flat, out='eprg' + flat + '_response',
+            'eprg' + twilight_flat, out='eprg' + twilight + '_response',
             skyimage='eprg' + twilight, order=95, fl_inter='no',
             func='spline3', sample='*', verbose='yes')
     #
