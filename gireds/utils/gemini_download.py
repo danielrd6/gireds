@@ -133,6 +133,8 @@ def main():
     parser.add_argument('-b', '--bias', help='Get bias', action='store_true')
     parser.add_argument('-d', '--download', action='store_true',
                         help='Only downloads and unpacks a given query')
+    parser.add_argument('-l', '--listonly', action='store_true',
+                        help='Only lists files to download')
 
     args = parser.parse_args()
 
@@ -181,8 +183,9 @@ def main():
             q = get_bias(hdrpars)
 
             query_archive(q)
-            print('Beginning download\n')
-            download_unpack(q)
+            if not args.listonly:
+                print('Beginning download\n')
+                download_unpack(q)
 
 
 if __name__ == '__main__':
