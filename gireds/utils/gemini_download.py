@@ -5,6 +5,7 @@ import pyfits as pf
 import argparse
 import time
 import datetime as dt
+import numpy as np
 
 
 def query_archive(query):
@@ -54,11 +55,40 @@ def date_span(datestring, spandays):
                        int(datestring[4:6]),
                        int(datestring[6:9]), 0, 0)
 
-    ld = date - dt.timedelta(days=spandays)
-    hd = date + dt.timedelta(days=spandays)
+    if spandays == 0:
+        fmt = '{:04d}{:02d}{:02d}'
+        vals = (date.year, date.month, date.day)
+    else:
+        fmt = '{:04d}{:02d}{:02d}-{:04d}{:02d}{:02d}'
+        ld = date - dt.timedelta(days=spandays)
+        hd = date + dt.timedelta(days=spandays)
+        vals = (ld.year, ld.month, ld.day, hd.year, hd.month, hd.day)
 
-    return ('{:04d}{:02d}{:02d}'.format(ld.year, ld.month, ld.day),
-            '{:04d}{:02d}{:02d}'.format(hd.year, hd.month, hd.day))
+    return (fmt.format(*vals))
+
+
+def wl_span(wl, span):
+    """
+    Takes a wavelength coordinate and a radius, and returns a string
+    with the wavelength span, already formatted for a query
+
+    Parameters
+    ----------
+    wl : number
+        Wavelength in nanometers
+
+    """
+
+    if span == 0:
+        fmt = 'cenwlen={:0.3f}'
+        vals = wl * 1e-3
+        s = fmt.format(vals)
+    else:
+        fmt = 'cenwlen={:0.3f}-{:0.3f}'
+        vals = (np.array([-span, +span]) + wl) * 1e-3
+        s = fmt.format(*vals)
+
+    return s
 
 
 def download_unpack(query):
@@ -73,16 +103,16 @@ def download_unpack(query):
     """
 
     address = 'https://archive.gemini.edu/download/{:s}'.format(query)
-    sp.call([address, '-O', 'gemini_data.tar', '-v'])
+    sp.call(['wget', address, '-O', 'gemini_data.tar', '-v'])
     time.sleep(1)
     sp.call(['tar', 'xvf', 'gemini_data.tar'])
     time.sleep(1)
     sp.call(['md5sum', '-c', 'md5sums.txt'])
-    time.sleep(1)
-    sp.call(['bunzip2', '-v', '*bz2'])
+    time.sleep(3)
+    sp.call('bunzip2 -v *bz2', shell=True)
 
 
-def get_flat(target_image):
+def get_flat(target_image, ttol, wltol):
     """
     Produces a gemini compliant query string based on the pars on
     target_image.
@@ -93,33 +123,87 @@ def get_flat(target_image):
         The parameters for the target image.
     """
 
-    query = 'query'
+    t = target_image
+
+    pars = ['FLAT',
+            'IFS',
+            t['maskname'],
+            t['instrument'],
+            t['binning'],
+            date_span(t['filename'][1:9], ttol),
+            t['grating'],
+            wl_span(t['grating_wl'], wltol),
+            'NotFail']
+
+    query = (len(pars)*'/{:s}').format(*pars)
 
     return query
 
 
-def get_twilight(target_image):
+def get_arc(target_image, ttol):
+    """
+    Produces a gemini compliant query string based on the pars on
+    target_image.
 
-    pass
-
-
-def get_twilight_flat(target_image):
-
-    pass
-
-
-def get_bias(target_image, ttol=30):
+    Parameters
+    ----------
+    target_image : dictionary or structured array
+        The parameters for the target image.
+    """
 
     t = target_image
 
-    binning = {'1 1': '1x1'}
+    pars = ['ARC',
+            'IFS',
+            t['maskname'],
+            t['instrument'],
+            t['binning'],
+            date_span(t['filename'][1:9], ttol),
+            t['grating'],
+            wl_span(t['grating_wl'], span=0),
+            'NotFail']
 
-    dates = date_span(t['filename'][1:9], ttol)
+    query = (len(pars)*'/{:s}').format(*pars)
+
+    return query
+
+
+def get_twilight(target_image, ttol, wltol):
+    """
+    Produces a gemini compliant query string based on the pars on
+    target_image.
+
+    Parameters
+    ----------
+    target_image : dictionary or structured array
+        The parameters for the target image.
+    """
+
+    t = target_image
+
+    pars = ['Twilight',
+            'IFS',
+            t['maskname'],
+            t['instrument'],
+            t['binning'],
+            date_span(t['filename'][1:9], ttol),
+            t['grating'],
+            wl_span(t['grating_wl'], span=wltol),
+            'NotFail']
+
+    query = (len(pars)*'/{:s}').format(*pars)
+
+    return query
+
+
+def get_bias(target_image, ttol):
+
+    t = target_image
 
     pars = ['PROCESSED_BIAS',
             t['instrument'],
-            binning[t['ccdsum']],
-            '{:s}/{:s}'.format(*dates)]
+            t['binning'],
+            date_span(t['filename'][1:9], ttol)]
 
     query = (len(pars)*'/{:s}').format(*pars)
     return query
@@ -129,47 +213,61 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('image', help="Target image")
+    parser.add_argument('-a', '--arc', help='Get arc', action='store_true')
     parser.add_argument('-f', '--flat', help='Get flat', action='store_true')
     parser.add_argument('-b', '--bias', help='Get bias', action='store_true')
+    parser.add_argument('-t', '--twilight',
+                        help='Get bias', action='store_true')
     parser.add_argument('-d', '--download', action='store_true',
                         help='Only downloads and unpacks a given query')
-    parser.add_argument('-l', '--listonly', action='store_true',
+    parser.add_argument('-l', '--list-only', action='store_true',
                         help='Only lists files to download')
+    parser.add_argument('--twilight-ttol', help="Twilight tolerance in days",
+                        nargs='?', default='180')
+    parser.add_argument('--twilight-wltol',
+                        help="Twilight tolerance in nanometers",
+                        nargs='?', default='7')
+    parser.add_argument('--bias-ttol', help="Bias tolerance in days",
+                        nargs='?', default='30')
+    parser.add_argument('--flat-ttol', help="Flat tolerance in days",
+                        nargs='?', default='2')
+    parser.add_argument('--arc-ttol', help="Flat tolerance in days",
+                        nargs='?', default='2')
+    parser.add_argument('--flat-wltol', help="Flat tolerance in nanometers",
+                        nargs='?', default='6')
 
     args = parser.parse_args()
 
     if not args.download:
         im = pf.open(args.image)
 
-        field_names = [
-            'filename', 'observatory', 'instrument', 'detector',
-            'grating', 'filter1', 'obsclass', 'object', 'obstype',
-            'grating_wl', 'mjd', 'ccdsum']
-        # types = [
-        #     'S60', 'S60', 'S60', 'S60', 'S60', 'S60', 'S60', 'S60', 'S60',
-        #     'float32', 'float32', 'S60']
-        hdrkeys = [
-            'observat', 'instrume', 'detector', 'grating', 'filter1',
-            'obsclass', 'object', 'obstype', 'grwlen']
-
-        # hdrpars_type = [
-        #     (field_names[i], types[i]) for i in range(len(field_names))]
-
-        # hdrpars = np.array(
-        #     [((args.image,) + tuple([im[0].header[j] for j in hdrkeys]) +
-        #       (im[1].header['mjd-obs'],) + (im[1].header['ccdsum'],))],
-        #     dtype=hdrpars_type)
+        fields = {'filename': '',
+                  'observatory': 'observat',
+                  'instrument': 'instrume',
+                  'detector': 'detector',
+                  'grating': 'grating',
+                  'filter1': 'filter1',
+                  'obsclass': 'obsclass',
+                  'object': 'object',
+                  'obstype': 'obstype',
+                  'grating_wl': 'grwlen',
+                  'maskname': 'maskname',
+                  'mjd': 'mjd-obs',
+                  'binning': 'ccdsum'}
 
         hdrpars = {}
-        for i, j in enumerate(field_names):
-            if i == 0:
-                hdrpars[j] = args.image
-            elif i == 10:
-                hdrpars[j] = im[1].header['mjd-obs']
-            elif i == 11:
-                hdrpars[j] = im[1].header['ccdsum']
+        for field in fields:
+            if field == 'filename':
+                hdrpars[field] = args.image
+            elif field == 'mjd':
+                hdrpars[field] = im[1].header['mjd-obs']
+            elif field == 'binning':
+                hdrpars[field] = im[1].header['ccdsum']
             else:
-                hdrpars[j] = im[0].header[hdrkeys[i - 1]]
+                hdrpars[field] = im[0].header[fields[field]]
+
+        hdrpars['grating'] = hdrpars['grating'].split('+')[0]
+        hdrpars['binning'] = hdrpars['binning'].replace(' ', 'x')
 
         # print(hdrpars)
 
@@ -177,16 +275,42 @@ def main():
         download_unpack(args.image)
     else:
         if args.flat:
-            q = get_flat(hdrpars)
-
-        if args.bias:
-            q = get_bias(hdrpars)
+            q = get_flat(hdrpars, ttol=int(args.flat_ttol),
+                         wltol=float(args.flat_wltol))
+            print(q)
 
             query_archive(q)
-            if not args.listonly:
+            if not args.list_only:
                 print('Beginning download\n')
                 download_unpack(q)
 
+        if args.twilight:
+            q = get_twilight(hdrpars, ttol=int(args.twilight_ttol),
+                             wltol=float(args.twilight_wltol))
+            print(q)
+
+            query_archive(q)
+            if not args.list_only:
+                print('Beginning download\n')
+                download_unpack(q)
+
+        if args.bias:
+            q = get_bias(hdrpars, ttol=int(args.bias_ttol))
+            print(q)
+
+            query_archive(q)
+            if not args.list_only:
+                print('Beginning download\n')
+                download_unpack(q)
+
+        if args.arc:
+            q = get_arc(hdrpars, ttol=int(args.arc_ttol))
+            print(q)
+
+            query_archive(q)
+            if not args.list_only:
+                print('Beginning download\n')
+                download_unpack(q)
 
 if __name__ == '__main__':
 
