@@ -212,10 +212,13 @@ def get_bias(target_image, ttol):
 def main():
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('image', help="Target image")
+    parser.add_argument('image', help='Target image or, in the case of '
+                        'options q or d, query string.')
     parser.add_argument('-a', '--arc', help='Get arc', action='store_true')
     parser.add_argument('-f', '--flat', help='Get flat', action='store_true')
     parser.add_argument('-b', '--bias', help='Get bias', action='store_true')
+    parser.add_argument('-q', '--query-only', action='store_true',
+                        help='Only queries the archive with the given string')
     parser.add_argument('-t', '--twilight',
                         help='Get bias', action='store_true')
     parser.add_argument('-d', '--download', action='store_true',
@@ -237,8 +240,7 @@ def main():
                         nargs='?', default='6')
 
     args = parser.parse_args()
-
-    if not args.download:
+    if (not args.download) and (not args.query_only):
         im = pf.open(args.image)
 
         fields = {'filename': '',
@@ -273,6 +275,9 @@ def main():
 
     if args.download:
         download_unpack(args.image)
+    elif args.query_only:
+        q = args.image
+        query_archive(q)
     else:
         if args.flat:
             q = get_flat(hdrpars, ttol=int(args.flat_ttol),
