@@ -146,8 +146,8 @@ def reduce_stdstar(
     prefix = 'rg'
 
     # Gemfix
-    iraf.gemfix(prefix + starimg, out='p' + prefix + starimg, method='fixpix',
-                bitmask=1)
+    iraf.gemfix(prefix + starimg, out='p' + prefix + starimg, method='fit1d',
+                bitmask=1, axis=1)
     prefix = 'p' + prefix
 
     if apply_lacos:
