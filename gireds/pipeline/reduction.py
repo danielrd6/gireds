@@ -136,7 +136,8 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
                 mdfdir='gmos$data/')
 
             # Gemfix
-            iraf.gemfix('rg' + i, out='prg' + i, method='fixpix', bitmask=1)
+            iraf.gemfix('rg' + i, out='prg' + i, method='fit1d', bitmask=1,
+                        axis=1)
 
             iraf.gfreduce(
                 'prg' + i, slits='header', rawpath='./', fl_inter='no',

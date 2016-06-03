@@ -105,8 +105,8 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, twilight_flat, sciimg,
     prefix = 'rg'
 
     # Gemfix
-    iraf.gemfix(prefix + sciimg, out='p' + prefix + sciimg, method='fixpix',
-                bitmask=1)
+    iraf.gemfix(prefix + sciimg, out='p' + prefix + sciimg, method='fit1d',
+                bitmask=1, axis=1)
     prefix = 'p' + prefix
 
     if apply_lacos:

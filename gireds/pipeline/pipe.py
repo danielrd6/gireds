@@ -114,11 +114,17 @@ class pipeline():
 
         self.all_stars = config.getboolean('associations', 'all_stars')
 
-        if (self.single_step and (self.reduction_step != 0)):
-            self.run_dir = config.get('main', 'run_dir')
-        else:
+        # if (self.single_step and (self.reduction_step != 0)):
+        #     self.run_dir = config.get('main', 'run_dir')
+        # else:
+        #     self.run_dir = self.products_dir\
+        #         + time.strftime('%Y-%m-%dT%H:%M:%S')
+
+        if config.get('main', 'run_dir') == 'new':
             self.run_dir = self.products_dir\
                 + time.strftime('%Y-%m-%dT%H:%M:%S')
+        else:
+            self.run_dir = config.get('main', 'run_dir')
 
     # @profile
     def associate_files(self):
@@ -260,7 +266,7 @@ class pipeline():
                 element['twilight_flat'] = np.array([], dtype='S60')
 
             element['arc'] = hdrpars['filename'][
-                (hdrpars['object'] == 'CuAr') &
+                # (hdrpars['object'] == 'CuAr') &
                 (hdrpars['obstype'] == 'ARC') &
                 (hdrpars['observatory'] == hdr['observat']) &
                 (hdrpars['detector'] == hdr['detector']) &
@@ -351,7 +357,12 @@ class pipeline():
                     format(starname, starinfo_file))
 
             i['stdstar'] = starinfo[stdstar_idx]['std']
-            i['caldir'] = starinfo[stdstar_idx]['caldir']
+
+            if starinfo[stdstar_idx]['caldir'] == 'gireds_data':
+                i['caldir'] = pkg_resources.resource_filename(
+                    'gireds', 'data/')
+            else:
+                starinfo[stdstar_idx]['caldir']
 
         self.sci = sci_ims
         self.std = std_ims
@@ -463,22 +474,22 @@ def main():
 
     args = parser.parse_args()
 
+    cal_categories_std = np.array([
+        'bias', 'flat', 'twilight', 'arc', 'twilight_flat', 'bpm'])
+
+    cal_categories_sci = np.array([
+        'bias', 'flat', 'twilight', 'arc', 'standard_star',
+        'twilight_flat', 'bpm'])
+
     if args.check:
 
         pip = pipeline(args.config_file)
         pip.dry_run = True
         pip.associate_files()
 
-        cal_categories = np.array([
-            'bias', 'flat', 'twilight', 'arc', 'twilight_flat'])
+        filecheck(pip.std, cal_categories_std)
 
-        filecheck(pip.std, cal_categories)
-
-        cal_categories = np.array([
-            'bias', 'flat', 'twilight', 'arc', 'standard_star',
-            'twilight_flat'])
-
-        filecheck(pip.sci, cal_categories)
+        filecheck(pip.sci, cal_categories_sci)
 
         if args.verbose:
             print(json.dumps(pip.std, indent=4))
@@ -530,8 +541,6 @@ def main():
             r = open('file_associations_std.dat', 'r').read()
             pip.std = eval(r)
 
-            cal_categories = np.array(['bias', 'flat', 'twilight', 'arc'])
-
             for star in pip.std:
 
                 cube_file = pip.run_dir + cube_prefix + star['image']
@@ -541,13 +550,14 @@ def main():
                     continue
 
                 cal = np.array([
-                    True if star[i] != '' else False for i in cal_categories])
+                    True if star[i] != '' else False
+                    for i in cal_categories_std])
 
                 if not cal.all():
                     iraf.printlog(
                         ('ERROR! Image {:s} does not have all the necessary'
                          'calibration files: ' + len(cal[~cal]) * '{:s} ')
-                        .format(star['image'], *cal_categories[~cal]),
+                        .format(star['image'], *cal_categories_std[~cal]),
                         logfile=logfile, verbose='yes')
                     iraf.printlog(
                         'Skipping image {:s}.'.format(star['image']),
@@ -580,9 +590,6 @@ def main():
             r = open('file_associations_std.dat', 'r').read()
             pip.std = eval(r)
 
-            cal_categories = np.array([
-                'bias', 'flat', 'twilight', 'arc', 'standard_star'])
-
             for sci in pip.sci:
 
                 cube_file = pip.run_dir + cube_prefix + sci['image']
@@ -592,13 +599,14 @@ def main():
                     continue
 
                 cal = np.array([
-                    True if sci[i] != '' else False for i in cal_categories])
+                    True if sci[i] != '' else False
+                    for i in cal_categories_sci])
 
                 if not cal.all():
                     iraf.printlog(
                         ('ERROR! Image {:s} does not have all the necessary\n'
                          'calibration files: ' + len(cal[~cal]) * '{:s} ')
-                        .format(sci['image'], *cal_categories[~cal]),
+                        .format(sci['image'], *cal_categories_sci[~cal]),
                         logfile=logfile, verbose='yes')
                     iraf.printlog(
                         'Skipping image {:s}.'.format(sci['image']),
