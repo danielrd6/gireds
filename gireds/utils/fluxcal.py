@@ -18,6 +18,19 @@ class stdstar():
         self.wl, self.flambda, self.bandpass, self.adu =\
             np.loadtxt(std, skiprows=1, unpack=True)
 
+        return
+
+    def get_c(self):
+        """
+        Evaluates the sensibility conversion function.
+
+        C = 2.5 log10 (A / (T B F))
+
+        Where A is the instrumental counts, T is the exposure time,
+        B is the width of the bandpass and F is the reference flux
+        per unit wavelength.
+        """
+
         self.c = 2.5 * np.log10(
             self.adu / self.exptime / self.bandpass / self.flambda)
 
@@ -84,6 +97,45 @@ def sensitivity(observed, reference, extinction=None, fnuzero=3.68e-20):
     return refwl, obsbp, c, flambda
 
 
+def shiftspectra(lambdas, fluxes):
+    """
+    Shifts the spectra and returns the additive term to be applied
+    to each spectrum in order to minimize the distance between them.
+
+    Parameters
+    ----------
+    lambdas : list of arrays
+        List of numpy 1d arrays containing the wavelength coordinates.
+    fluxes : list of arrays
+        List of numpy 1d arrays containing the flux coordinates.
+
+    """
+
+    intersect = np.intersect1d(lambdas[0], lambdas[1])
+    if len(lambdas) > 2:
+        for i in lambdas[2:]:
+            intersect = np.intersect1d(intersect, i)
+
+    intersect_args = []
+    for i in lambdas:
+        intersect_args.append(np.array([j in intersect for j in i]))
+
+    avg = np.average(np.array([fluxes[i][intersect_args[i]]
+                               for i in range(len(fluxes))]))
+
+    offset = []
+
+    for i, j in enumerate(fluxes):
+
+        def res(p):
+            return (avg - (np.average(j) + p[0])) ** 2
+
+        ofs = minimize(res, x0=[0], method='slsqp')
+        offset.append(ofs.x)
+
+    return offset
+
+
 def sensfunc(std, extinction=None, fnuzero=3.68e-20, mask=None,
              shift=False):
     """
@@ -96,7 +148,7 @@ def sensfunc(std, extinction=None, fnuzero=3.68e-20, mask=None,
 
     idx = [i for i in range(len(fl)) if '.fits' in fl[i]]
     stars = []
-    
+
     for i, j in enumerate(idx):
         if j != idx[-1]:
             stars.append(stdstar(fl[j:idx[i + 1]]))
@@ -104,15 +156,22 @@ def sensfunc(std, extinction=None, fnuzero=3.68e-20, mask=None,
             stars.append(stdstar(fl[j:]))
 
     if len(stars) > 1:
-        for i in stars:
-            i.interp()
+        if shift:
+            offsets = shiftspectra([j.wl for j in stars],
+                                   [j.adu for j in stars])
+            for i, star in enumerate(stars):
+                star.adu += offsets[i]
 
-        x = np.unique(np.concatenate([i.wl for i in stars]))
+        for star in stars:
+            star.get_c()
+            star.interp()
+
+        x = np.unique(np.concatenate([j.wl for j in stars]))
         y = np.nanmean([s.adu_interp(x) for s in stars], 0)
 
     else:
         x = stars[0].wl
         y = stars[0].adu
+        shift = False
 
-
-    return x, y
+    return x, y, stars
