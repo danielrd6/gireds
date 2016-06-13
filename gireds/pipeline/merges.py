@@ -139,7 +139,7 @@ def merge_cubes(rawdir, rundir, name, observatory, imgcube, xoff,
     # --- Identify problem with negative values ---- Improve
     # RuntimeWarning: invalid value encountered in divide
     exp_MASK = np.ma.array(exp_cube, mask=(exp_cube == 0))
-    err_cube = np.sqrt(abs(var_cube / exp_MASK).data)
+    err_cube = np.sqrt(abs(var_cube / exp_MASK ** 2).data)
 
     #
     #   Criate hypercube
