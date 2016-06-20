@@ -587,8 +587,8 @@ def main():
 
             r = open('file_associations_sci.dat', 'r').read()
             pip.sci = eval(r)
-            r = open('file_associations_std.dat', 'r').read()
-            pip.std = eval(r)
+            # r = open('file_associations_std.dat', 'r').read()
+            # pip.std = eval(r)
 
             for sci in pip.sci:
 
@@ -636,8 +636,8 @@ def main():
 
             r = open('file_associations_sci.dat', 'r').read()
             pip.sci = eval(r)
-            r = open('file_associations_std.dat', 'r').read()
-            pip.std = eval(r)
+            # r = open('file_associations_std.dat', 'r').read()
+            # pip.std = eval(r)
 
             # List of objects
             listname = [(sci['object'].lower()).replace(' ', '')

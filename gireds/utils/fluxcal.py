@@ -192,8 +192,14 @@ def sensfunc(std, extinction=None, mask=None, shift=False, spl_options={},
         c = np.nanmean([s.c_interp(x) for s in stars], 0)
 
     else:
+        star = stars[0]
+
         star.build_c()
-        x = stars[0].wl
+        star.interp()
+
+        x = star.wl
+        wl = np.arange(x[0], x[-1], 1)
+        c = star.c_interp(x)
 
     spl = np.array(uvspline(x, c, **spl_options)(wl), dtype='float32')
 
