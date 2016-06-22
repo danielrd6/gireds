@@ -156,4 +156,4 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, twilight_flat, sciimg,
     #
     iraf.gfcube(
         prefix + sciimg, outimage='d' + prefix + sciimg, ssample=.1,
-        fl_atmdisp='yes', fl_var=vardq, fl_dq=vardq)
+        fl_atmdisp='yes', fl_var=vardq, fl_dq=vardq, bitmask=16)

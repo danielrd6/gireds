@@ -6,7 +6,7 @@ Feige34 mfeige34 gireds_data -
 Feige66 mfeige66 gireds_data -
 Feige67 mfeige67 gireds_data -
 Feige56 f56 onedstds$ctionewcal/ -
-Hiltner600 h600 onedstds$ctionewcal/ -
+Hiltner600 mhilt600 gireds_data H600
 LTT1020 l1020 onedstds$ctionewcal/ -
 LTT1788 l1788 onedstds$ctionewcal/ -
 LTT2415 l2415 onedstds$ctionewcal/ -
@@ -35,7 +35,6 @@ GD248 mgd248 gireds_data -
 GD50 mgd50 gireds_data -
 HD192281 hd192281 onedstds$spec50cal/ -
 HD217086 hd217086 onedstds$spec50cal/ -
-Hiltner600 hilt600 onedstds$spec50cal/ -
 HZ14 hz14 onedstds$spec50cal/ eg42
 HZ44 hz44 onedstds$spec50cal/ -
 PG0205134 pg0205134 onedstds$spec50cal/ -

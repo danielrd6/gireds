@@ -219,7 +219,7 @@ def reduce_stdstar(
     #
     iraf.gfcube(
         'c' + prefix + starimg, outimage='dc' + prefix + starimg, ssample=.1,
-        fl_atmdisp='yes', fl_var=vardq, fl_dq=vardq)
+        fl_atmdisp='yes', fl_var=vardq, fl_dq=vardq, bitmask=16)
 
     #
     # Test calibration
