@@ -118,7 +118,7 @@ def merge_cubes(rawdir, rundir, name, observatory, imgcube, xoff,
     #   Merge sci/var cubes
     #
     iraf.imcombine("@" + in_filesSCI, out_sci, offsets=in_offset,
-                   combine='average', reject='none', masktype='goodvalue',
+                   combine='average', reject='avsigclip', masktype='goodvalue',
                    maskvalue=0, expmasks=out_exp, sigmas=out_sigIN)
 
     iraf.imcombine("@" + in_filesVAR, out_var, offsets=in_offset,

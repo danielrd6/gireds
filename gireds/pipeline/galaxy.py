@@ -21,7 +21,7 @@ from reduction import cal_reduction, wl_lims
 def reduce_science(rawdir, rundir, flat, arc, twilight, twilight_flat, sciimg,
                    starimg, bias, overscan, vardq, observatory, lacos,
                    apply_lacos, lacos_xorder, lacos_yorder, bpm, instrument,
-                   slits, fl_gscrrej, wltrim_frac):
+                   slits, fl_gscrrej, wltrim_frac, grow_gap):
     """
     Reduction pipeline for standard star.
 
@@ -47,6 +47,9 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, twilight_flat, sciimg,
         Name of the file containing the image to be reduced.
     bias: list
         Bias images.
+    grow_gap: number
+        Number of pixels by which to grow the bad pixel mask around
+        the chip gaps.
 
     """
 
@@ -83,14 +86,19 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, twilight_flat, sciimg,
     arc = arc.strip('.fits')
     starimg = starimg.strip('.fits')
     sciimg = sciimg.strip('.fits')
-    iraf.gfreduce.bias = 'caldir$' + bias
-    iraf.gireduce.bpm = 'rawdir$' + bpm
     mdffile = 'mdf' + flat + '.fits'
+
+    iraf.gfreduce.bias = 'caldir$' + bias
+    iraf.gfreduce.fl_fulldq = 'yes'
+    iraf.gfreduce.fl_fixgaps = 'yes'
+    iraf.gfreduce.grow = grow_gap
+    iraf.gireduce.bpm = 'rawdir$' + bpm
 
     cal_reduction(
         rawdir=rawdir, rundir=rundir, flat=flat, arc=arc, twilight=twilight,
         bias=bias, bpm=bpm, overscan=overscan, vardq=vardq,
-        instrument=instrument, slits=slits, twilight_flat=twilight_flat)
+        instrument=instrument, slits=slits, twilight_flat=twilight_flat,
+        grow_gap=grow_gap)
     #
     #   Actually reduce science
     #
@@ -98,7 +106,7 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, twilight_flat, sciimg,
         sciimg, slits='header', rawpath='rawdir$', fl_inter='no',
         fl_addmdf='yes', key_mdf='MDF', mdffile=mdffile, weights='no',
         fl_over=overscan, fl_trim='yes', fl_bias='yes', trace='no',
-        recenter='no',
+        recenter='no', fl_fulldq='yes',
         fl_flux='no', fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
         fl_wavtran='no', fl_novl='yes', fl_skysub='no', fl_vardq=vardq,
         mdfdir='procdir$')
@@ -106,7 +114,7 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, twilight_flat, sciimg,
 
     # Gemfix
     iraf.gemfix(prefix + sciimg, out='p' + prefix + sciimg, method='fit1d',
-                bitmask=1, axis=1)
+                bitmask=65535, axis=1)
     prefix = 'p' + prefix
 
     if apply_lacos:
@@ -120,9 +128,10 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, twilight_flat, sciimg,
         fl_addmdf='no', key_mdf='MDF', mdffile=mdffile, fl_over='no',
         fl_trim='no', fl_bias='no', trace='no', recenter='no', fl_flux='no',
         fl_gscrrej=fl_gscrrej, fl_extract='yes', fl_gsappwave='yes',
-        fl_wavtran='no', fl_novl='no', fl_skysub='no',
+        fl_wavtran='no', fl_novl='no', fl_skysub='no', grow=grow_gap,
         reference='eprg' + flat, weights='no', wavtraname='erg' + arc,
-        response='eprg' + twilight + '_response.fits', fl_vardq=vardq)
+        response='eprg' + twilight + '_response.fits', fl_vardq=vardq,
+        fl_fulldq='yes', fl_fixgaps='yes')
     if fl_gscrrej:
         prefix = 'ex' + prefix
     else:
@@ -140,7 +149,7 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, twilight_flat, sciimg,
         fl_wavtran='yes', fl_novl='no', fl_skysub='yes',
         reference='eprg' + flat, weights='no', wavtraname='erg' + arc,
         response='eprg' + twilight + '_response.fits', fl_vardq=vardq,
-        w1=wl1, w2=wl2)
+        w1=wl1, w2=wl2, fl_fulldq='yes')
 
     prefix = 'st' + prefix
     #
@@ -156,4 +165,4 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, twilight_flat, sciimg,
     #
     iraf.gfcube(
         prefix + sciimg, outimage='d' + prefix + sciimg, ssample=.1,
-        fl_atmdisp='yes', fl_var=vardq, fl_dq=vardq, bitmask=16)
+        fl_atmdisp='yes', fl_var=vardq, fl_dq=vardq, bitmask=8)

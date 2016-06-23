@@ -73,7 +73,8 @@ def wl_lims(image, trim_fraction=0.02):
 
 
 def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
-                  bpm, overscan, vardq, instrument, slits, wltrim_frac=0.03):
+                  bpm, overscan, vardq, instrument, slits, grow_gap=1,
+                  wltrim_frac=0.03):
     """
     Reduction pipeline for basic calibration images.
 
@@ -116,7 +117,11 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
     twilight = twilight.strip('.fits')
     twilight_flat = twilight_flat.strip('.fits')
     arc = arc.strip('.fits')
+
     iraf.gfreduce.bias = 'caldir$' + bias
+    iraf.gfreduce.fl_fulldq = 'yes'
+    iraf.gfreduce.fl_fixgaps = 'yes'
+    iraf.gfreduce.grow = grow_gap
     iraf.gireduce.bpm = 'rawdir$' + bpm
 
     #
@@ -146,7 +151,7 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
                 trace='yes', t_order=4, fl_flux='no', fl_gscrrej='no',
                 fl_extract='yes', fl_gsappwave='no', fl_wavtran='no',
                 fl_novl='no', fl_skysub='no', reference='', recenter='yes',
-                fl_vardq=vardq)
+                fl_vardq=vardq, fl_fixgaps='yes', grow=grow_gap)
 
             # Apertures
             apertures(i, vardq, mdffile, overscan, instrument, slits)
@@ -176,7 +181,8 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
             fl_over='no', fl_trim='no', fl_bias='no', trace='no',
             t_order=4, fl_flux='no', fl_gscrrej='no', fl_extract='yes',
             fl_gsappwave='no', fl_wavtran='no', fl_novl='no', fl_skysub='no',
-            reference='eprg' + twilight_flat, recenter='yes', fl_vardq=vardq)
+            reference='eprg' + twilight_flat, recenter='yes', fl_vardq=vardq,
+            fl_fixgaps='yes', grow=grow_gap)
     #
     #   Response function
     #

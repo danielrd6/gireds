@@ -124,10 +124,12 @@ def reduce_stdstar(
     twilight_flat = twilight_flat.strip('.fits')
     arc = arc.strip('.fits')
     starimg = starimg.strip('.fits')
+    mdffile = 'mdf' + flat + '.fits'
 
     iraf.gfreduce.bias = 'rawdir$'+bias
+    iraf.gfreduce.fl_fulldq = 'yes'
+    iraf.gfreduce.fl_fixgaps = 'yes'
     iraf.gireduce.bpm = 'rawdir$'+bpm
-    mdffile = 'mdf' + flat + '.fits'
 
     cal_reduction(
         rawdir=rawdir, rundir=rundir, flat=flat, arc=arc, twilight=twilight,

@@ -427,7 +427,8 @@ class pipeline():
             lacos_yorder=self.cfg.getint('reduction', 'lacos_yorder'),
             bpm=dic['bpm'], slits=dic['slits'], instrument=dic['instrument'],
             fl_gscrrej=self.cfg.getboolean('reduction', 'fl_gscrrej'),
-            wltrim_frac=self.cfg.getfloat('reduction', 'wltrim_frac'))
+            wltrim_frac=self.cfg.getfloat('reduction', 'wltrim_frac'),
+            grow_gap=self.cfg.getfloat('reduction', 'grow_gap'))
 
     def merge(self, sciobj, name, cube_prefix):
 
