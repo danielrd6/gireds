@@ -93,6 +93,7 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, twilight_flat, sciimg,
     iraf.gfreduce.fl_fixgaps = 'yes'
     iraf.gfreduce.grow = grow_gap
     iraf.gireduce.bpm = 'rawdir$' + bpm
+    iraf.gfextract.verbose = 'no'
 
     cal_reduction(
         rawdir=rawdir, rundir=rundir, flat=flat, arc=arc, twilight=twilight,
@@ -163,6 +164,24 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, twilight_flat, sciimg,
     #
     #   Create data cubes
     #
+    #   GFCUBE has a problem when interpolating over the chip gaps, so
+    #   the recommended value for bitmask is 8, in order to only interpolate
+    #   cosmic-rays and similiar short period variations. Nevertheless,
+    #   when building the combined cube, the actual data quality values
+    #   are needed, to ignore the bad pixels in one exposure and keep
+    #   the good ones from the other exposure. Therefore, in a true
+    #   "gambiarra", GFCUBE is run two time, and the correct
+    #   dataquality plane is inserted into the correct science data
+    #   cube.
+    #
+    #
     iraf.gfcube(
         prefix + sciimg, outimage='d' + prefix + sciimg, ssample=.1,
-        fl_atmdisp='yes', fl_var=vardq, fl_dq=vardq, bitmask=8)
+        fl_atmdisp='yes', fl_var=vardq, fl_dq=vardq, bitmask=8, fl_flux='yes')
+    iraf.gfcube(
+        prefix + sciimg, outimage='dataquality.fits', ssample=.1,
+        fl_atmdisp='yes', fl_var=vardq, fl_dq=vardq, bitmask=65535,
+        fl_flux='yes')
+    iraf.imcopy(
+        'dataquality.fits[DQ]', 'd' + prefix + sciimg + '[DQ, OVERWRITE]')
+    iraf.delete('dataquality.fits')

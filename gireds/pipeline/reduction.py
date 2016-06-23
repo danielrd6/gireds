@@ -123,6 +123,7 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
     iraf.gfreduce.fl_fixgaps = 'yes'
     iraf.gfreduce.grow = grow_gap
     iraf.gireduce.bpm = 'rawdir$' + bpm
+    iraf.gfextract.verbose = 'no'
 
     #
     #   Flat reduction
