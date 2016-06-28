@@ -167,6 +167,8 @@ def sensfunc(std, extinction=None, mask=None, shift=False, spl_options={},
         fl = f.readlines()
 
     idx = [i for i in range(len(fl)) if '.fits' in fl[i]]
+    fitsfiles = [fl[i][1:fl[i].index('.fits') + 5] for i in idx]
+
     stars = []
 
     for i, j in enumerate(idx):
@@ -205,6 +207,7 @@ def sensfunc(std, extinction=None, mask=None, shift=False, spl_options={},
 
     hdr = pf.Header()
 
+    orighdr = pf.open(fitsfiles[0])[0].header
     hdic = {'crval1': wl[0],
             'crpix1': 1.,
             'object': 'Sens',
@@ -214,7 +217,13 @@ def sensfunc(std, extinction=None, mask=None, shift=False, spl_options={},
             'WAT0_001': 'system=equispec',
             'WAT1_001': 'wtype=linear label=Wavelength units=Angstroms',
             'ctype1': 'linear',
-            'APNUM1': '1 1'
+            'APNUM1': '1 1',
+            'observat': orighdr['observat'],
+            'instrume': orighdr['instrume'],
+            'grating': orighdr['grating'],
+            'filter1': orighdr['filter1'],
+            'maskname': orighdr['maskname'],
+            'detector': orighdr['detector']
             }
 
     for i in hdic:

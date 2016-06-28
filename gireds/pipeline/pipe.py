@@ -113,6 +113,7 @@ class pipeline():
         self.products_dir = config.get('main', 'products_dir')
 
         self.all_stars = config.getboolean('associations', 'all_stars')
+        self.stored_sens = config.getboolean('associations', 'stored_sensfunc')
 
         # if (self.single_step and (self.reduction_step != 0)):
         #     self.run_dir = config.get('main', 'run_dir')
@@ -126,7 +127,33 @@ class pipeline():
         else:
             self.run_dir = config.get('main', 'run_dir')
 
-    # @profile
+    def load_storedsens(self):
+        """
+        Loads the relevant parameters from the previously stored
+        sensibility function for later association.
+        """
+
+        l = glob.glob(self.gireds_dir + '/data/*.fits')
+        l.sort()
+        idx = np.arange(len(l))
+
+        headers = [pf.open(i)[0].header for i in l]
+
+        field_names = ['filename', 'observatory', 'instrument', 'detector',
+                       'grating', 'filter1', 'maskname']
+        types = ['S120'] + ['S60' for i in range(6)]
+        hdrkeys = ['observat', 'instrume', 'detector', 'grating', 'filter1',
+                   'maskname']
+
+        hdrpars_type = [
+            (field_names[i], types[i]) for i in range(len(field_names))]
+
+        stored_sensfunc = np.array([
+            ((l[i],) + tuple([headers[i][j] for j in hdrkeys])) for i in idx],
+            dtype=hdrpars_type)
+
+        self.stored_sensfunc = stored_sensfunc
+
     def associate_files(self):
         """
         Investigates raw_dir for images to be reduced, and associates
@@ -145,6 +172,9 @@ class pipeline():
                 linelist = arq.readline().split()
                 for j in range(len(infoname)):
                     starinfo[i][j] = linelist[j]
+
+        if self.stored_sens:
+            self.load_storedsens()
 
         os.chdir(self.raw_dir)
 
@@ -178,7 +208,7 @@ class pipeline():
             'grating', 'filter1', 'obsclass', 'object', 'obstype',
             'grating_wl', 'overscan', 'mjd', 'ccdsum']
         types = [
-            'S60', 'S60', 'S60', 'S60', 'S60', 'S60', 'S60', 'S60', 'S60',
+            'S120', 'S60', 'S60', 'S60', 'S60', 'S60', 'S60', 'S60', 'S60',
             'float32', 'bool', 'float32', 'S60']
         hdrkeys = [
             'observat', 'instrume', 'detector', 'grating', 'filter1',
@@ -191,6 +221,7 @@ class pipeline():
             ((l[i],) + tuple([headers[i][j] for j in hdrkeys]) +
              (oversc[i],) + (mjds[i],) + (headers_ext1[i]['ccdsum'],))
             for i in idx], dtype=hdrpars_type)
+
         associated = []
 
         for i, j in enumerate(images):
@@ -208,19 +239,29 @@ class pipeline():
                 'filter1': hdr['filter1'], 'obsclass': hdr['obsclass'],
                 'object': hdr['object']}
 
-            element['standard_star'] = hdrpars['filename'][
-                (hdrpars['obstype'] == 'OBJECT') &
-                (np.array([k in ['partnerCal', 'progCal']
-                           for k in hdrpars['obsclass']], dtype='bool')) &
-                (hdrpars['object'] != 'Twilight') &
-                (hdrpars['observatory'] == hdr['observat']) &
-                (hdrpars['detector'] == hdr['detector']) &
-                (hdrpars['grating'] == hdr['grating']) &
-                (hdrpars['filter1'] == hdr['filter1']) &
-                (abs(hdrpars['grating_wl'] - hdr['grwlen']) <=
-                    self.cfg.getfloat('associations', 'stdstar_wltol')) &
-                (abs(mjds - mjd) <=
-                    self.cfg.getfloat('associations', 'stdstar_ttol'))]
+            if self.stored_sens:
+                ssf = self.stored_sensfunc
+                element['standard_star'] = ssf['filename'][
+                    (ssf['observatory'] == hdr['observat']) &
+                    (ssf['detector'] == hdr['detector']) &
+                    (ssf['grating'] == hdr['grating']) &
+                    (ssf['instrument'] == hdr['instrume']) &
+                    (ssf['filter1'] == hdr['filter1']) &
+                    (ssf['maskname'] == hdr['maskname'])]
+            else:
+                element['standard_star'] = hdrpars['filename'][
+                    (hdrpars['obstype'] == 'OBJECT') &
+                    (np.array([k in ['partnerCal', 'progCal']
+                               for k in hdrpars['obsclass']], dtype='bool')) &
+                    (hdrpars['object'] != 'Twilight') &
+                    (hdrpars['observatory'] == hdr['observat']) &
+                    (hdrpars['detector'] == hdr['detector']) &
+                    (hdrpars['grating'] == hdr['grating']) &
+                    (hdrpars['filter1'] == hdr['filter1']) &
+                    (abs(hdrpars['grating_wl'] - hdr['grwlen']) <=
+                        self.cfg.getfloat('associations', 'stdstar_wltol')) &
+                    (abs(mjds - mjd) <=
+                        self.cfg.getfloat('associations', 'stdstar_ttol'))]
 
             element['flat'] = hdrpars['filename'][
                 (hdrpars['obstype'] == 'FLAT') &
