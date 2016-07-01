@@ -403,7 +403,7 @@ class pipeline():
                 i['caldir'] = pkg_resources.resource_filename(
                     'gireds', 'data/')
             else:
-                starinfo[stdstar_idx]['caldir']
+                i['caldir'] = starinfo[stdstar_idx]['caldir']
 
         self.sci = sci_ims
         self.std = std_ims
