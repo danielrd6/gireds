@@ -253,7 +253,7 @@ def main():
                   'obsclass': 'obsclass',
                   'object': 'object',
                   'obstype': 'obstype',
-                  'grating_wl': 'grwlen',
+                  'grating_wl': 'centwave',
                   'maskname': 'maskname',
                   'mjd': 'mjd-obs',
                   'binning': 'ccdsum'}
