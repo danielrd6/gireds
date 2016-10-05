@@ -457,11 +457,16 @@ class pipeline():
 
     def science(self, dic):
 
+        if self.stored_sens:
+            sensfunc = dic['standard_star']
+        else:
+            sensfunc = 'sens' + dic['standard_star']
+
         reduce_science(
             rawdir=self.raw_dir, rundir=self.run_dir, flat=dic['flat'],
             arc=dic['arc'], twilight=dic['twilight'],
             twilight_flat=dic['twilight_flat'], sciimg=dic['image'],
-            starimg=dic['standard_star'], bias=dic['bias'],
+            starimg=sensfunc, bias=dic['bias'],
             overscan=self.fl_over, vardq=self.fl_vardq, lacos=self.lacos_file,
             observatory=dic['observatory'], apply_lacos=self.apply_lacos,
             lacos_xorder=self.cfg.getint('reduction', 'lacos_xorder'),

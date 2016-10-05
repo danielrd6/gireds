@@ -157,7 +157,7 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, twilight_flat, sciimg,
     #   Apply flux calibration to galaxy
     #
     iraf.gscalibrate(
-        prefix + sciimg, sfuncti='sens' + starimg,
+        prefix + sciimg, sfuncti=starimg,
         extinct='onedstds$ctioextinct.dat',
         observatory=observatory, fluxsca=1, fl_vardq=vardq)
     prefix = 'c' + prefix
