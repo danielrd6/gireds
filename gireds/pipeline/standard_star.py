@@ -15,9 +15,11 @@
 from pyraf import iraf
 import matplotlib.pyplot as plt
 import numpy as np
-import pyfits as pf
+import astropy.io.fits as pf
 from reduction import cal_reduction, wl_lims
 import pdb
+import pipe
+import os
 
 
 def circular_aperture(image, radius=1):
@@ -138,57 +140,138 @@ def reduce_stdstar(
     #
     #   Actually reduce star
     #
-    iraf.gfreduce(
-        starimg, slits='header', rawpath='rawdir$', fl_inter='no',
-        fl_addmdf='yes', key_mdf='MDF', mdffile=mdffile, weights='no',
-        fl_over=overscan, fl_trim='yes', fl_bias='yes', trace='no',
-        recenter='no', fl_flux='no', fl_gscrrej='no', fl_extract='no',
-        fl_gsappwave='no', fl_wavtran='no', fl_novl='yes', fl_skysub='no',
-        fl_vardq=vardq, mdfdir='procdir$')
+    imageName = 'rg' + starimg + '.fits'
+    if os.path.isfile(imageName):
+        pipe.skipwarn(imageName)
+    else:
+
+        imageName = 'g' + starimg + '.fits'
+        if os.path.isfile(imageName):
+            iraf.printlog(
+                'GIREDS: WARNING: Removing file {:s}'
+                .format(imageName), 'logfile.log', 'yes')
+            iraf.delete(imageName)
+
+        iraf.gfreduce(
+            starimg, slits='header', rawpath='rawdir$', fl_inter='no',
+            fl_addmdf='yes', key_mdf='MDF', mdffile=mdffile, weights='no',
+            fl_over=overscan, fl_trim='yes', fl_bias='yes', trace='no',
+            recenter='no', fl_flux='no', fl_gscrrej='no', fl_extract='no',
+            fl_gsappwave='no', fl_wavtran='no', fl_novl='yes', fl_skysub='no',
+            fl_vardq=vardq, mdfdir='procdir$')
     prefix = 'rg'
-
+    #
     # Gemfix
-    iraf.gemfix(prefix + starimg, out='p' + prefix + starimg, method='fit1d',
-                bitmask=1, axis=1)
+    #
+    imageName = 'p' + prefix + starimg + '.fits'
+    if os.path.isfile(imageName):
+        pipe.skipwarn(imageName)
+    else:
+        iraf.gemfix(
+            prefix + starimg, out='p' + prefix + starimg, method='fit1d',
+            bitmask=1, axis=1)
     prefix = 'p' + prefix
-
+    #
+    # LA Cosmic
+    #
     if apply_lacos:
-        iraf.gemcrspec(
-            prefix + starimg, out='l' + prefix + starimg, sigfrac=0.32,
-            niter=4, fl_vardq=vardq, xorder=lacos_xorder, yorder=lacos_yorder)
-        prefix = 'l' + prefix
 
-    iraf.gfreduce(
-        prefix + starimg, slits='header', rawpath='./', fl_inter='no',
-        fl_addmdf='no', key_mdf='MDF', mdffile=mdffile, fl_over='no',
-        fl_trim='no', fl_bias='no', trace='no', recenter='no', fl_flux='no',
-        fl_gscrrej=fl_gscrrej, fl_extract='yes', fl_gsappwave='yes',
-        fl_wavtran='no', fl_novl='no', fl_skysub='no',
-        reference='eprg' + flat, weights='no', wavtraname='erg' + arc,
-        response='eprg' + twilight + '_response.fits', fl_vardq=vardq)
+        imageName = 'l' + prefix + starimg + '.fits'
+        if os.path.isfile(imageName):
+            pipe.skipwarn(imageName)
+        else:
+            if apply_lacos:
+                iraf.gemcrspec(
+                    prefix + starimg, out='l' + prefix + starimg, sigfrac=0.32,
+                    niter=4, fl_vardq=vardq, xorder=lacos_xorder,
+                    yorder=lacos_yorder)
+
+        prefix = 'l' + prefix
+    #
+    # Extraction and Gemini's comsmic ray rejection
+    #
     if fl_gscrrej:
+        imageName = 'x' + prefix + starimg + '.fits'
+
+        if os.path.isfile(imageName):
+            pipe.skipwarn(imageName)
+            fl_gscrrej = False
+
+            imageName = 'ex' + prefix + starimg + '.fits'
+            if os.path.isfile(imageName):
+                pipe.skipwarn(imageName)
+            else:
+                iraf.gfreduce(
+                    prefix + starimg, slits='header', rawpath='./',
+                    fl_inter='no', fl_addmdf='no', key_mdf='MDF',
+                    mdffile=mdffile, fl_over='no', fl_trim='no', fl_bias='no',
+                    trace='no', recenter='no', fl_flux='no',
+                    fl_gscrrej=fl_gscrrej, fl_extract='yes',
+                    fl_gsappwave='yes', fl_wavtran='no', fl_novl='no',
+                    fl_skysub='no', reference='eprg' + flat, weights='no',
+                    wavtraname='erg' + arc,
+                    response='eprg' + twilight + '_response.fits',
+                    fl_vardq=vardq)
         prefix = 'ex' + prefix
     else:
-        prefix = 'e' + prefix
+        imageName = 'e' + prefix + starimg + '.fits'
 
+        if os.path.isfile(imageName):
+            pipe.skipwarn(imageName)
+        else:
+            iraf.gfreduce(
+                prefix + starimg, slits='header', rawpath='./',
+                fl_inter='no', fl_addmdf='no', key_mdf='MDF',
+                mdffile=mdffile, fl_over='no', fl_trim='no', fl_bias='no',
+                trace='no', recenter='no', fl_flux='no',
+                fl_gscrrej=fl_gscrrej, fl_extract='yes',
+                fl_gsappwave='yes', fl_wavtran='no', fl_novl='no',
+                fl_skysub='no', reference='eprg' + flat, weights='no',
+                wavtraname='erg' + arc,
+                response='eprg' + twilight + '_response.fits',
+                fl_vardq=vardq)
+            prefix = 'e' + prefix
+    #
+    # Wavelength transform
+    #
     wl1, wl2 = wl_lims(prefix + starimg + '.fits', wltrim_frac)
+    imageName = 't' + prefix + starimg + '.fits'
+    if os.path.isfile(imageName):
+        pipe.skipwarn(imageName)
+    else:
+        iraf.gfreduce(
+            prefix + starimg, slits='header', rawpath='./', fl_inter='no',
+            fl_addmdf='no', key_mdf='MDF', mdffile=mdffile, fl_over='no',
+            fl_trim='no', fl_bias='no', trace='no', recenter='no',
+            fl_flux='no',
+            fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
+            fl_wavtran='yes', fl_novl='no', fl_skysub='no',
+            reference='eprg' + flat, weights='no', wavtraname='erg' + arc,
+            response='eprg' + twilight + '_response.fits', fl_vardq=vardq,
+            w1=wl1, w2=wl2)
+    prefix = 't' + prefix
 
-    iraf.gfreduce(
-        prefix + starimg, slits='header', rawpath='./', fl_inter='no',
-        fl_addmdf='no', key_mdf='MDF', mdffile=mdffile, fl_over='no',
-        fl_trim='no', fl_bias='no', trace='no', recenter='no', fl_flux='no',
-        fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
-        fl_wavtran='yes', fl_novl='no', fl_skysub='yes',
-        reference='eprg' + flat, weights='no', wavtraname='erg' + arc,
-        response='eprg' + twilight + '_response.fits', fl_vardq=vardq,
-        w1=wl1, w2=wl2)
-
-    prefix = 'st' + prefix
-
+    #
+    # Sky subtraction
+    #
+    imageName = 's' + prefix + starimg + '.fits'
+    if os.path.isfile(imageName):
+        pipe.skipwarn(imageName)
+    else:
+        iraf.gfreduce(
+            prefix + starimg, slits='header', rawpath='./', fl_inter='no',
+            fl_addmdf='no', key_mdf='MDF', mdffile=mdffile, fl_over='no',
+            fl_trim='no', fl_bias='no', trace='no', recenter='no',
+            fl_flux='no',
+            fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
+            fl_wavtran='no', fl_novl='no', fl_skysub='yes',
+            reference='eprg' + flat, weights='no', wavtraname='erg' + arc,
+            response='eprg' + twilight + '_response.fits', fl_vardq=vardq,
+            w1=wl1, w2=wl2)
+    prefix = 's' + prefix
     #
     #   Apsumming the stellar spectra
     #
-
     xinst = pf.getdata(prefix + starimg + '.fits', ext=1)['XINST']
     if instrument == 'GMOS-N':
         x0 = np.average(xinst[xinst < 10])
@@ -198,30 +281,63 @@ def reduce_stdstar(
     ap_expression = '((XINST-{:.2f})**2 + '\
         '(YINST-2.45)**2)**0.5 < {:.2f}'.format(x0, apsum_radius)
 
-    iraf.gfapsum(
-        prefix + starimg, fl_inter='no', lthreshold='INDEF',
-        hthreshold='INDEF',
-        reject='avsigclip', expr=ap_expression)
+    imageName = 'a' + prefix + starimg + '.fits'
+    if os.path.isfile(imageName):
+        pipe.skipwarn(imageName)
+    else:
+        iraf.gfapsum(
+            prefix + starimg, fl_inter='no', lthreshold='INDEF',
+            hthreshold='INDEF',
+            reject='avsigclip', expr=ap_expression)
     #
     #   Building sensibility function
     #
-    iraf.gsstandard(
-        'a' + prefix + starimg, starname=stdstar, observatory=observatory,
-        sfile='std' + starimg, sfunction='sens' + starimg, caldir=caldir,
-        order=sens_order, function=sens_function)
+    if os.path.isfile('std' + starimg)\
+            and os.path.isfile('sens' + starimg + '.fits'):
+        pipe.skipwarn('std{0:s} and sens{0:s}.fits'.format(starimg))
+    else:
+
+        imageName = 'std' + starimg
+        if os.path.isfile(imageName):
+            iraf.printlog(
+                'GIREDS: WARNING: Removing file {:s}'
+                .format(imageName), 'logfile.log', 'yes')
+            iraf.delete(imageName)
+
+        imageName = 'sens' + starimg + '.fits'
+        if os.path.isfile(imageName):
+            iraf.printlog(
+                'GIREDS: WARNING: Removing file {:s}'
+                .format(imageName), 'logfile.log', 'yes')
+            iraf.delete(imageName)
+
+        iraf.gsstandard(
+            'a' + prefix + starimg, starname=stdstar, observatory=observatory,
+            sfile='std' + starimg, sfunction='sens' + starimg, caldir=caldir,
+            order=sens_order, function=sens_function)
     #
     #   Apply flux calibration to star
     #
-    iraf.gscalibrate(
-        prefix + starimg, sfuncti='sens' + starimg,
-        extinct='onedstds$ctioextinct.dat', observatory=observatory,
-        fluxsca=1, fl_vardq=vardq)
+    imageName = 'c' + prefix + starimg + '.fits'
+    if os.path.isfile(imageName):
+        pipe.skipwarn(imageName)
+    else:
+        pdb.set_trace()
+        iraf.gscalibrate(
+            prefix + starimg, sfuncti='sens' + starimg,
+            extinct='onedstds$ctioextinct.dat', observatory=observatory,
+            fluxsca=1, fl_vardq=vardq)
     #
     #   Create data cubes
     #
-    iraf.gfcube(
-        'c' + prefix + starimg, outimage='dc' + prefix + starimg, ssample=.1,
-        fl_atmdisp='yes', fl_var=vardq, fl_dq=vardq, bitmask=8, fl_flux='yes')
+    imageName = 'dc' + prefix + starimg + '.fits'
+    if os.path.isfile(imageName):
+        pipe.skipwarn(imageName)
+    else:
+        iraf.gfcube(
+            'c' + prefix + starimg, outimage='dc' + prefix + starimg,
+            ssample=.1, fl_atmdisp='yes', fl_var=vardq, fl_dq=vardq, bitmask=8,
+            fl_flux='yes')
 
     #
     # Test calibration
@@ -231,10 +347,14 @@ def reduce_stdstar(
     iraf.cd('procdir')
     calflux = mag2flux(caldata[0], caldata[1])
 
-    iraf.gscalibrate(
-        'a' + prefix + starimg, sfuncti='sens' + starimg,
-        extinct='onedstds$ctioextinct.dat',
-        observatory=observatory, fluxsca=1)
+    imageName = 'ca' + prefix + starimg + '.fits'
+    if os.path.isfile(imageName):
+        pipe.skipwarn(imageName)
+    else:
+        iraf.gscalibrate(
+            'a' + prefix + starimg, sfuncti='sens' + starimg,
+            extinct='onedstds$ctioextinct.dat',
+            observatory=observatory, fluxsca=1)
 
     sumflux = pf.getdata('ca' + prefix + starimg + '.fits', ext=2)
     sumhead = pf.getheader('ca' + prefix + starimg + '.fits', ext=2)

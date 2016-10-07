@@ -14,6 +14,7 @@ from pyraf import iraf
 import argparse
 import json
 import subprocess
+import warnings
 # from distutils.sysconfig import get_python_lib
 from merges import merge_cubes
 
@@ -60,6 +61,15 @@ def closest_in_time(images, target):
     mjds = np.array([pf.getheader(i, ext=1)['mjd-obs'] for i in images])
 
     return images[abs(mjds - tgt_mjd).argsort()[1]]
+
+
+def skipwarn(imageName):
+
+    warnText = 'Skipping alread present image {:s}.'.format(imageName)
+    warnings.warn(warnText)
+    iraf.printlog('GIREDS: ' + warnText, 'logfile.log', 'yes')
+
+    return
 
 
 class GiredsError(Exception):

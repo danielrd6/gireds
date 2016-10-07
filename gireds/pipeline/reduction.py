@@ -16,6 +16,7 @@ import pyfits as pf
 import os
 import pkg_resources
 import pdb
+import pipe
 
 
 def wl_lims(image, trim_fraction=0.02):
@@ -129,7 +130,18 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
     #   Flat reduction
     #
     for i in [flat, twilight_flat]:
-        if not os.path.isfile('eprg' + i + '.fits'):
+        imageName = 'eprg' + i + '.fits'
+        if os.path.isfile(imageName):
+            pipe.skipwarn(imageName)
+        else:
+            imageName = i + '.fits'
+            for j in ['g', 'r', 'p']:
+                imageName = j + imageName
+                if os.path.isfile(imageName):
+                    iraf.printlog(
+                        'GIREDS: WARNING: Removing file {:s}'
+                        .format(imageName), 'logfile.log', 'yes')
+                    iraf.delete(imageName)
 
             mdffile = 'mdf' + i + '.fits'
             iraf.gfreduce(
@@ -139,8 +151,14 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
                 trace='no', fl_flux='no', fl_gscrrej='no', fl_extract='no',
                 fl_gsappwave='no', fl_wavtran='no', fl_novl='no',
                 fl_skysub='no', recenter='no', fl_vardq=vardq,
-                mdfdir='gmos$data/')
+                fl_fulldq=vardq, mdfdir='gmos$data/')
 
+            try:
+                h = pf.open('rg' + i + '.fits')
+                a = h['DQ', 1]
+                del(a)
+            except KeyError as err:
+                return
             # Gemfix
             iraf.gemfix('rg' + i, out='prg' + i, method='fit1d', bitmask=1,
                         axis=1)
@@ -162,8 +180,10 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
     #
     mdffile = 'mdf' + twilight_flat + '.fits'
 
-    if not os.path.isfile('eprg' + twilight + '.fits'):
-
+    imageName = 'eprg' + twilight + '.fits'
+    if os.path.isfile(imageName):
+        pipe.skipwarn(imageName)
+    else:
         iraf.gfreduce(
             twilight, slits='header', rawpath='rawdir$', fl_inter='no',
             fl_addmdf='yes', key_mdf='MDF', mdffile=mdffile, weights='no',
@@ -171,7 +191,12 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
             fl_flux='no', fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
             fl_wavtran='no', fl_novl='no', fl_skysub='no',
             recenter='no', fl_vardq=vardq, mdfdir='procdir$')
-
+        try:
+            h = pf.open('rg' + i + '.fits')
+            a = h['DQ', 1]
+            del(a)
+        except KeyError as err:
+            return
         # Gemfix
         iraf.gemfix('rg' + twilight, out='prg' + twilight, method='fixpix',
                     bitmask=1)
@@ -187,7 +212,10 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
     #
     #   Response function
     #
-    if not os.path.isfile('eprg' + twilight_flat + '_response.fits'):
+    imageName = 'eprg' + twilight + '_response.fits'
+    if os.path.isfile(imageName):
+        pipe.skipwarn(imageName)
+    else:
         iraf.gfresponse(
             'eprg' + twilight_flat, out='eprg' + twilight + '_response',
             skyimage='eprg' + twilight, order=95, fl_inter='no',
@@ -195,7 +223,10 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
     #
     #   Arc reduction
     #
-    if not os.path.isfile('erg' + arc + '.fits'):
+    imageName = 'erg' + arc + '.fits'
+    if os.path.isfile(imageName):
+        pipe.skipwarn(imageName)
+    else:
         iraf.gfreduce(
             arc, slits='header', rawpath='rawdir$', fl_inter='no',
             fl_addmdf='yes', key_mdf='MDF', mdffile=mdffile, weights='no',
@@ -207,18 +238,23 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
     #   Finding wavelength solution
     #   Note: the automatic identification is very good
     #
-    if not os.path.isfile('./database/iderg' + arc + '_001'):
+    imageName = './database/iderg' + arc + '_001'
+    if not os.path.isfile(imageName):
         iraf.gswavelength(
             'erg' + arc, function='chebyshev', nsum=15, order=4, fl_inter='no',
             nlost=5, ntarget=20, aiddebug='s', threshold=5,
             section='middle line')
+    else:
+        pipe.skipwarn(imageName)
     #
     #   Apply wavelength solution to the lamp 2D spectra
     #
     wl1, wl2 = wl_lims('erg' + arc + '.fits', wltrim_frac)
-    if wl2 > 7550.0:
-        wl2 = 7550.0
-    if not os.path.isfile('teprg' + arc + '.fits'):
+
+    imageName = 'terg' + arc + '.fits'
+    if os.path.isfile(imageName):
+        pipe.skipwarn(imageName)
+    else:
         iraf.gftransform(
             'erg' + arc, wavtran='erg' + arc, outpref='t', fl_vardq='no',
             w1=wl1, w2=wl2)
@@ -622,7 +658,6 @@ def apertures(flat, vardq, mdffile, overscan, instrument, slits):
 
     # Copy mdf used by flat.
     # File 'gsifu_slits_mdf.fits' is used as base (arbitrarily chosen)
-    # pdb.set_trace()
     if 'UR_DIR_PKG' in iraf.envget('gemini'):
         mdfFits = pf.open(
             iraf.envget('UR_DIR_PKG') +
