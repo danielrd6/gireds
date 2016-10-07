@@ -337,6 +337,35 @@ class pipeline():
                     (~hdrpars['overscan'] & (self.fl_over == 'no'))
                 )]
 
+            im = pf.open(element['image'])
+            ishape = np.array(im[1].data.shape, dtype='float32')
+            im.close()
+            del(im)
+
+            validBiases = np.ones(len(element['bias']), dtype='bool')
+            k = 0
+
+            for biasImage in element['bias']:
+
+                bias = pf.open(biasImage)
+                bshape = np.array(bias[1].data.shape, dtype='float32')
+                bias.close()
+                del(bias)
+
+                #
+                # Elinates biases if they differ in array size from
+                # the science image. Small differences are normal due to
+                # the overscan subtraction in processed bias frames.
+                #
+                if np.any(np.abs(bshape / ishape - 1.0) > 0.05):
+                    # pdb.set_trace()
+                    validBiases[k] = False
+
+                k += 1
+
+            element['bias'] = element['bias'][validBiases]
+            del(k)
+
             element['bpm'] = hdrpars['filename'][
                 (hdrpars['obstype'] == 'BPM') &
                 (hdrpars['observatory'] == hdr['observat']) &
