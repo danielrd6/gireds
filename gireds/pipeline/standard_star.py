@@ -196,7 +196,7 @@ def reduce_stdstar(
         if os.path.isfile(imageName):
             pipe.skipwarn(imageName)
             fl_gscrrej = False
-
+        else:
             imageName = 'ex' + prefix + starimg + '.fits'
             if os.path.isfile(imageName):
                 pipe.skipwarn(imageName)
@@ -230,7 +230,7 @@ def reduce_stdstar(
                 wavtraname='erg' + arc,
                 response='eprg' + twilight + '_response.fits',
                 fl_vardq=vardq)
-            prefix = 'e' + prefix
+        prefix = 'e' + prefix
     #
     # Wavelength transform
     #
