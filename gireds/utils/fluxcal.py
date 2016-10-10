@@ -138,7 +138,7 @@ def shiftspectra(lambdas, fluxes):
 
 
 def sensfunc(std, extinction=None, mask=None, shift=False, spl_options={},
-             output='sens.fits'):
+             output='sens.fits', wl_lims=None):
     """
     Fits a sensibility function to a table provided by IRAF's
     standard task.
@@ -190,6 +190,10 @@ def sensfunc(std, extinction=None, mask=None, shift=False, spl_options={},
             star.interp()
 
         x = np.unique(np.concatenate([s.wl for s in stars]))
+
+        if wl_lims is not None:
+            x = x[(x >= wl_lims[0]) & (x <= wl_lims[1])]
+
         wl = np.arange(x[0], x[-1], 1)
         c = np.nanmean([s.c_interp(x) for s in stars], 0)
 
@@ -200,6 +204,10 @@ def sensfunc(std, extinction=None, mask=None, shift=False, spl_options={},
         star.interp()
 
         x = star.wl
+
+        if wl_lims is not None:
+            x = x[(x >= wl_lims[0]) & (x <= wl_lims[1])]
+
         wl = np.arange(x[0], x[-1], 1)
         c = star.c_interp(x)
 
@@ -234,4 +242,4 @@ def sensfunc(std, extinction=None, mask=None, shift=False, spl_options={},
 
     hdulist.writeto(output, clobber=True)
 
-    return x, c, spl, stars
+    return x, c, wl, spl, stars
