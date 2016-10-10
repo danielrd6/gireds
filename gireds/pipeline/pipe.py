@@ -357,7 +357,7 @@ class pipeline():
                 # the science image. Small differences are normal due to
                 # the overscan subtraction in processed bias frames.
                 #
-                if np.any(np.abs(bshape / ishape - 1.0) > 0.05):
+                if np.any(np.abs(bshape / ishape - 1.0) > 0.10):
                     # pdb.set_trace()
                     validBiases[k] = False
 
@@ -590,9 +590,15 @@ def main():
         pip = pipeline(args.config_file)
 
         if pip.apply_lacos:
-            cube_prefix = 'dcstexlprg'
+            if pip.cfg.getboolean('reduction', 'fl_gscrrej'):
+                cube_prefix = 'dcstexlprg'
+            else:
+                cube_prefix = 'dcstelprg'
         else:
-            cube_prefix = 'dcstexprg'
+            if pip.cfg.getboolean('reduction', 'fl_gscrrej'):
+                cube_prefix = 'dcstexprg'
+            else:
+                cube_prefix = 'dcsteprg'
 
         ver_stamp = (50 * '#' + '\n' + 'GIREDS version hash: ' + pip.version +
                      '\n' + 50 * '#' + '\n')
