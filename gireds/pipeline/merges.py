@@ -88,9 +88,13 @@ def merge_cubes(rawdir, rundir, name, observatory, imgcube, xoff,
     sign = -1 if (observatory.lower() == 'gemini-north') else 1
     with open(in_offset, 'w') as f:
         for k in range(nCubes):
-            f.write("{:.5f} {:.5f} {:.5f}\n".format(
-                sign * xoff[k] / cdelt1[k], sign * yoff[k] / cdelt1[k],
-                crval3[k] / cdelt3[k]))
+            f.write(
+                "{:.5f} {:.5f} {:.5f}\n".format(
+                    sign * (xoff[k] - xoff[0]) / cdelt1[k],
+                    sign * (yoff[k] - yoff[0]) / cdelt1[k],
+                    (crval3[k] - crval3[0]) / cdelt3[k]
+                    )
+                )
 
     #
     #   Definition of in/output files. And header modification.
