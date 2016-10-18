@@ -322,7 +322,6 @@ def reduce_stdstar(
     if os.path.isfile(imageName):
         pipe.skipwarn(imageName)
     else:
-        pdb.set_trace()
         iraf.gscalibrate(
             prefix + starimg, sfuncti='sens' + starimg,
             extinct='onedstds$ctioextinct.dat', observatory=observatory,

@@ -358,7 +358,6 @@ class pipeline():
                 # the overscan subtraction in processed bias frames.
                 #
                 if np.any(np.abs(bshape / ishape - 1.0) > 0.10):
-                    # pdb.set_trace()
                     validBiases[k] = False
 
                 k += 1
