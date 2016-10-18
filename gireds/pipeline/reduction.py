@@ -647,11 +647,10 @@ def apertures(flat, vardq, mdffile, overscan, instrument, slits):
         if reidentify_out:
             iraf.imdelete('eprg' + flat + '.fits')
             iraf.gfreduce(
-                'prg' + flat, slits='header', rawpath='./',
-                fl_inter='no',
+                'prg' + flat, slits='header', rawpath='./', fl_inter='no',
                 fl_addmdf='no', key_mdf='MDF', mdffile='default',
-                mdfdir='procdir$', weights='no',
-                fl_over=overscan, fl_trim='no', fl_bias='no', trace='yes',
+                mdfdir='procdir$', weights='no', fl_over='no',
+                fl_trim='no', fl_bias='no', trace='yes',
                 t_order=4, fl_flux='no', fl_gscrrej='no', fl_extract='yes',
                 fl_gsappwave='no', fl_wavtran='no', fl_novl='no',
                 fl_skysub='no', reference='', recenter='yes', fl_vardq=vardq)
