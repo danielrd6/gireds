@@ -111,6 +111,7 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
     iraf.set(procdir=rundir)  # processed files
 
     iraf.gmos.logfile = 'logfile.log'
+    iraf.gfextract.verbose = 'no'
 
     iraf.cd('procdir')
 
