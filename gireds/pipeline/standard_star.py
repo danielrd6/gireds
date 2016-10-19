@@ -111,6 +111,7 @@ def reduce_stdstar(
 
     iraf.gmos.logfile = 'logfile.log'
     iraf.gemtools.gloginit.logfile = 'logfile.log'
+    iraf.gfextract.verbose = 'no'
 
     # set directories
     iraf.set(caldir=rawdir)  #

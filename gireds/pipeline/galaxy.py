@@ -77,6 +77,7 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, twilight_flat, sciimg,
     iraf.set(procdir=rundir)  # processed files
 
     iraf.gmos.logfile = 'logfile.log'
+    iraf.gfextract.verbose = 'no'
 
     iraf.cd('procdir')
 
