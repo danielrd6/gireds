@@ -1,7 +1,7 @@
 import urllib
 import json
 import subprocess as sp
-import pyfits as pf
+import astropy.io.fits as pf
 import argparse
 import time
 import datetime as dt
