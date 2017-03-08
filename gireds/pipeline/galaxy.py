@@ -13,9 +13,8 @@
 # Table of images
 
 from pyraf import iraf
-# import numpy as np
-# import pyfits as pf
 from reduction import cal_reduction, wl_lims
+import pdb
 
 
 def reduce_science(rawdir, rundir, flat, arc, twilight, twilight_flat, sciimg,
@@ -81,12 +80,12 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, twilight_flat, sciimg,
 
     iraf.cd('procdir')
 
-    flat = flat.strip('.fits')
-    twilight = twilight.strip('.fits')
-    twilight_flat = twilight_flat.strip('.fits')
-    arc = arc.strip('.fits')
-    starimg = starimg.strip('.fits')
-    sciimg = sciimg.strip('.fits')
+    flat = flat.replace('.fits', '')
+    twilight = twilight.replace('.fits', '')
+    twilight_flat = twilight_flat.replace('.fits', '')
+    arc = arc.replace('.fits', '')
+    starimg = starimg.replace('.fits', '')
+    sciimg = sciimg.replace('.fits', '')
     mdffile = 'mdf' + flat + '.fits'
 
     iraf.gfreduce.bias = 'caldir$' + bias
