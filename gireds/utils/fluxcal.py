@@ -1,5 +1,5 @@
 import numpy as np
-import pyfits as pf
+import astropy.io.fits as pf
 import ifscube.spectools as st
 from scipy.optimize import minimize
 from scipy.interpolate import interp1d
@@ -178,15 +178,18 @@ def sensfunc(std, extinction=None, mask=None, shift=False, spl_options={},
             stars.append(stdstar(fl[j:]))
 
     if len(stars) > 1:
+        
+        for star in stars:
+            star.build_c()
+        
         if shift:
             offsets = shiftspectra([j.wl for j in stars],
-                                   [j.adu for j in stars])
+                                   [j.c for j in stars])
 
             for i, star in enumerate(stars):
                 star.adu += offsets[i]
 
         for star in stars:
-            star.build_c()
             star.interp()
 
         x = np.unique(np.concatenate([s.wl for s in stars]))
