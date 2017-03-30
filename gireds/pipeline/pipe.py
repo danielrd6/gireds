@@ -738,7 +738,12 @@ def main():
             for name in sciname:
 
                 sufix = '_HYPERCUBE.fits'
-                cube_file = pip.run_dir + name + sufix
+                cube_file = pip.run_dir + '/' + name + sufix
+
+                if os.path.isfile(cube_file):
+                    skipwarn(cube_file)
+                    continue
+
                 if args.incremental and isfile(cube_file):
                     print('Skipping already reduced cube {:s}{:s}'.format(
                         name, sufix))

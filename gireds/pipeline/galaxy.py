@@ -2,7 +2,7 @@
 
 #
 #
-# ATTENTION!!!                                                        #
+# ATTENTION!!!                                                    #
 # DO NOT follow on a reduction process unless you are sure about  #
 # the fiber masks in the MDF file. Disregarding this warning will #
 # most certainly lead to major headaches at the final stages of   #
@@ -14,7 +14,8 @@
 
 from pyraf import iraf
 from reduction import cal_reduction, wl_lims
-import pdb
+import pipe
+import os
 
 
 def reduce_science(rawdir, rundir, flat, arc, twilight, twilight_flat, sciimg,
@@ -103,63 +104,96 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, twilight_flat, sciimg,
     #
     #   Actually reduce science
     #
-    iraf.gfreduce(
-        sciimg, slits='header', rawpath='rawdir$', fl_inter='no',
-        fl_addmdf='yes', key_mdf='MDF', mdffile=mdffile, weights='no',
-        fl_over=overscan, fl_trim='yes', fl_bias='yes', trace='no',
-        recenter='no', fl_fulldq='yes',
-        fl_flux='no', fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
-        fl_wavtran='no', fl_novl='yes', fl_skysub='no', fl_vardq=vardq,
-        mdfdir='procdir$')
+    imagename = 'rg' + sciimg + '.fits'
+    if os.path.isfile(imagename):
+        pipe.skipwarn(imagename)
+    else:
+        iraf.gfreduce(
+            sciimg, slits='header', rawpath='rawdir$', fl_inter='no',
+            fl_addmdf='yes', key_mdf='MDF', mdffile=mdffile, weights='no',
+            fl_over=overscan, fl_trim='yes', fl_bias='yes', trace='no',
+            recenter='no', fl_fulldq='yes',
+            fl_flux='no', fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
+            fl_wavtran='no', fl_novl='yes', fl_skysub='no', fl_vardq=vardq,
+            mdfdir='procdir$')
     prefix = 'rg'
 
     # Gemfix
-    iraf.gemfix(prefix + sciimg, out='p' + prefix + sciimg, method='fit1d',
-                bitmask=65535, axis=1)
+    imagename = 'p' + prefix + sciimg + '.fits'
+    if os.path.isfile(imagename):
+        pipe.skipwarn(imagename)
+    else:
+        iraf.gemfix(
+            prefix + sciimg, out='p' + prefix + sciimg, method='fit1d',
+            bitmask=65535, axis=1)
     prefix = 'p' + prefix
 
+    # LA Cosmic - cosmic ray removal
     if apply_lacos:
-        iraf.gemcrspec(
-            prefix + sciimg, out='l' + prefix + sciimg, sigfrac=0.32,
-            niter=4, fl_vardq=vardq, xorder=lacos_xorder, yorder=lacos_yorder)
+        imagename = 'l' + prefix + sciimg + '.fits'
+        if os.path.isfile(imagename):
+            pipe.skipwarn(imagename)
+        else:
+            iraf.gemcrspec(
+                prefix + sciimg, out='l' + prefix + sciimg, sigfrac=0.32,
+                niter=4, fl_vardq=vardq, xorder=lacos_xorder,
+                yorder=lacos_yorder)
         prefix = 'l' + prefix
 
-    iraf.gfreduce(
-        prefix + sciimg, slits='header', rawpath='./', fl_inter='no',
-        fl_addmdf='no', key_mdf='MDF', mdffile=mdffile, fl_over='no',
-        fl_trim='no', fl_bias='no', trace='no', recenter='no', fl_flux='no',
-        fl_gscrrej=fl_gscrrej, fl_extract='yes', fl_gsappwave='yes',
-        fl_wavtran='no', fl_novl='no', fl_skysub='no', grow=grow_gap,
-        reference='eprg' + flat, weights='no', wavtraname='erg' + arc,
-        response='eprg' + twilight + '_response.fits', fl_vardq=vardq,
-        fl_fulldq='yes', fl_fixgaps='yes')
+    if fl_gscrrej:
+        imagename = 'ex' + prefix + sciimg + '.fits'
+    else:
+        imagename = 'e' + prefix + sciimg + '.fits'
+
+    if os.path.isfile(imagename):
+        pipe.skipwarn(imagename)
+    else:
+        iraf.gfreduce(
+            prefix + sciimg, slits='header', rawpath='./', fl_inter='no',
+            fl_addmdf='no', key_mdf='MDF', mdffile=mdffile, fl_over='no',
+            fl_trim='no', fl_bias='no', trace='no', recenter='no',
+            fl_flux='no', fl_gscrrej=fl_gscrrej, fl_extract='yes',
+            fl_gsappwave='yes', fl_wavtran='no', fl_novl='no', fl_skysub='no',
+            grow=grow_gap, reference='eprg' + flat, weights='no',
+            wavtraname='erg' + arc, response='eprg' + twilight +
+            '_response.fits', fl_vardq=vardq, fl_fulldq='yes',
+            fl_fixgaps='yes')
+
     if fl_gscrrej:
         prefix = 'ex' + prefix
     else:
         prefix = 'e' + prefix
 
     wl1, wl2 = wl_lims(prefix + sciimg + '.fits', wltrim_frac)
-    if wl2 > 7550.0:
-        wl2 = 7550.0
+    # if wl2 > 7550.0:
+    #     wl2 = 7550.0
 
-    iraf.gfreduce(
-        prefix + sciimg, slits='header', rawpath='./', fl_inter='no',
-        fl_addmdf='no', key_mdf='MDF', mdffile=mdffile, fl_over='no',
-        fl_trim='no', fl_bias='no', trace='no', recenter='no', fl_flux='no',
-        fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
-        fl_wavtran='yes', fl_novl='no', fl_skysub='yes',
-        reference='eprg' + flat, weights='no', wavtraname='erg' + arc,
-        response='eprg' + twilight + '_response.fits', fl_vardq=vardq,
-        w1=wl1, w2=wl2, fl_fulldq='yes')
+    imagename = 'st' + prefix + sciimg + '.fits'
+    if os.path.isfile(imagename):
+        pipe.skipwarn(imagename)
+    else:
+        iraf.gfreduce(
+            prefix + sciimg, slits='header', rawpath='./', fl_inter='no',
+            fl_addmdf='no', key_mdf='MDF', mdffile=mdffile, fl_over='no',
+            fl_trim='no', fl_bias='no', trace='no', recenter='no',
+            fl_flux='no', fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
+            fl_wavtran='yes', fl_novl='no', fl_skysub='yes', reference='eprg' +
+            flat, weights='no', wavtraname='erg' + arc, response='eprg' +
+            twilight + '_response.fits', fl_vardq=vardq, w1=wl1, w2=wl2,
+            fl_fulldq='yes')
 
     prefix = 'st' + prefix
     #
     #   Apply flux calibration to galaxy
     #
-    iraf.gscalibrate(
-        prefix + sciimg, sfuncti=starimg,
-        extinct='onedstds$ctioextinct.dat',
-        observatory=observatory, fluxsca=1, fl_vardq=vardq)
+    imagename = 'c' + prefix + sciimg + '.fits'
+    if os.path.isfile(imagename):
+        pipe.skipwarn(imagename)
+    else:
+        iraf.gscalibrate(
+            prefix + sciimg, sfuncti=starimg,
+            extinct='onedstds$ctioextinct.dat',
+            observatory=observatory, fluxsca=1, fl_vardq=vardq)
     prefix = 'c' + prefix
     #
     #   Create data cubes
@@ -175,13 +209,18 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, twilight_flat, sciimg,
     #   cube.
     #
     #
-    iraf.gfcube(
-        prefix + sciimg, outimage='d' + prefix + sciimg, ssample=.1,
-        fl_atmdisp='yes', fl_var=vardq, fl_dq=vardq, bitmask=8, fl_flux='yes')
-    iraf.gfcube(
-        prefix + sciimg, outimage='dataquality.fits', ssample=.1,
-        fl_atmdisp='yes', fl_var=vardq, fl_dq=vardq, bitmask=65535,
-        fl_flux='yes')
-    iraf.imcopy(
-        'dataquality.fits[DQ]', 'd' + prefix + sciimg + '[DQ, OVERWRITE]')
-    iraf.delete('dataquality.fits')
+    imagename = 'd' + prefix + sciimg + '.fits'
+    if os.path.isfile(imagename):
+        pipe.skipwarn(imagename)
+    else:
+        iraf.gfcube(
+            prefix + sciimg, outimage='d' + prefix + sciimg, ssample=.1,
+            fl_atmdisp='yes', fl_var=vardq, fl_dq=vardq, bitmask=8,
+            fl_flux='yes')
+        iraf.gfcube(
+            prefix + sciimg, outimage='dataquality.fits', ssample=.1,
+            fl_atmdisp='yes', fl_var=vardq, fl_dq=vardq, bitmask=65535,
+            fl_flux='yes')
+        iraf.imcopy(
+            'dataquality.fits[DQ]', 'd' + prefix + sciimg + '[DQ, OVERWRITE]')
+        iraf.delete('dataquality.fits')
