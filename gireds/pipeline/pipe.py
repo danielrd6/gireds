@@ -7,7 +7,6 @@ import time
 import glob
 import standard_star
 import pkg_resources
-import pdb
 # from standard_star import reduce_stdstar
 from galaxy import reduce_science
 from pyraf import iraf
@@ -93,7 +92,9 @@ class pipeline():
 
     def __init__(self, config_file):
 
-        config = ConfigParser.SafeConfigParser()
+        config_defaults = {
+            'object_filter': False}
+        config = ConfigParser.SafeConfigParser(config_defaults)
         cfgnames = config.read(config_file)
         if cfgnames == []:
             raise GiredsError(
@@ -124,6 +125,7 @@ class pipeline():
 
         self.all_stars = config.getboolean('associations', 'all_stars')
         self.stored_sens = config.getboolean('associations', 'stored_sensfunc')
+        self.object_filter = config.get('associations', 'object_filter')
 
         # if (self.single_step and (self.reduction_step != 0)):
         #     self.run_dir = config.get('main', 'run_dir')
@@ -402,7 +404,16 @@ class pipeline():
                     slits = 'red'
                 i['slits'] = slits
 
-        sci_ims = [i for i in associated if i['obsclass'] == 'science']
+        if self.object_filter:
+            objs = self.object_filter.split(',')
+            sci_ims = [
+                i for i in associated if (
+                    (i['obsclass'] == 'science') &\
+                    (i['object'] in objs)
+                )
+            ]
+        else:
+            sci_ims = [i for i in associated if i['obsclass'] == 'science']
 
         if self.all_stars:
             std_ims = [
