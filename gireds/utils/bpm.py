@@ -48,13 +48,16 @@ def make_bpm(flat_seed, bpm_file, pixel_ranges):
     bpm.writeto(bpm_file)
 
 
-if __name__ == '__main__':
+def main():
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('flat_seed', help='Gprepared flat field exposure '
-                        'on which the BPM will be based.')
-    parser.add_argument('bpm_file', help='Output bad pixel mask.')
-    parser.add_argument('pixel_ranges', help='ASCII file containing the '
-                        'rectangular region definitions to be masked.')
+    parser.add_argument('flat_seed',
+        help='Gprepared flat field exposure  on which the BPM will be based.')
+    parser.add_argument('bpm_file',
+        help='Output bad pixel mask.')
+    parser.add_argument('pixel_ranges',
+        help='ASCII file containing the rectangular region definitions to be '
+        'masked.')
     args = parser.parse_args()
+
     make_bpm(args.flat_seed, args.bpm_file, args.pixel_ranges)
