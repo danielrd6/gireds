@@ -122,14 +122,14 @@ def shiftspectra(lambdas, fluxes):
         intersect_args.append(np.array([j in intersect for j in i]))
 
     avg = np.average(np.array([fluxes[i][intersect_args[i]]
-                               for i in range(len(fluxes))]))
+                               for i in range(len(fluxes))]), 0)
 
     offset = []
 
-    for i, j in enumerate(fluxes):
+    for i, j in enumerate(intersect_args):
 
         def res(p):
-            return (avg - (np.average(j) + p[0])) ** 2
+            return np.sum((avg - (np.average(fluxes[i][j]) + p[0])) ** 2)
 
         ofs = minimize(res, x0=[0], method='slsqp')
         offset.append(ofs.x)
@@ -187,7 +187,7 @@ def sensfunc(std, extinction=None, mask=None, shift=False, spl_options={},
                                    [j.c for j in stars])
 
             for i, star in enumerate(stars):
-                star.adu += offsets[i]
+                star.c += offsets[i]
 
         for star in stars:
             star.interp()
