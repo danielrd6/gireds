@@ -1,0 +1,7 @@
+#!/usr/bin/env python
+
+if __name__ == '__main__':
+    
+    from gireds.utils.bpm import main
+    
+    main()
