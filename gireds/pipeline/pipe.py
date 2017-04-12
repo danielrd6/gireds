@@ -545,7 +545,12 @@ class pipeline():
 
 def filecheck(dic, cat):
 
-    for img in dic:
+    objs = np.array([i['object'] for i in dic])
+    idx = objs.argsort()
+
+    for k in idx:
+
+        img = dic[k]
 
         cal = np.array([True if img[i] != '' else False for i in cat])
 
