@@ -203,7 +203,7 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
                     bitmask=1)
 
         iraf.gfreduce(
-            'prg' + twilight, slits='header', rawpath='./', fl_inter='yes',
+            'prg' + twilight, slits='header', rawpath='./', fl_inter='no',
             fl_addmdf='no', key_mdf='MDF', mdffile=mdffile, weights='no',
             fl_over='no', fl_trim='no', fl_bias='no', trace='yes',
             t_order=4, fl_flux='no', fl_gscrrej='no', fl_extract='yes',
