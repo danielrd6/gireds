@@ -47,6 +47,8 @@ def merge_cubes(rawdir, rundir, name, observatory, imgcube, xoff,
         cdelt1 for each object cube.
     """
 
+    rundir = rundir + '/'
+
     iraf.set(stdimage='imtgmos')
 
     iraf.gemini()
