@@ -164,25 +164,39 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, twilight_flat, sciimg,
     else:
         prefix = 'e' + prefix
 
-    wl1, wl2 = wl_lims(prefix + sciimg + '.fits', wltrim_frac)
     # if wl2 > 7550.0:
     #     wl2 = 7550.0
 
-    imagename = 'st' + prefix + sciimg + '.fits'
+    #
+    #   Apply wavelength transformation
+    #
+    
+    wl1, wl2 = wl_lims(prefix + sciimg + '.fits', wltrim_frac)
+
+    imagename = 't' + prefix + sciimg + '.fits'
     if os.path.isfile(imagename):
         pipe.skipwarn(imagename)
     else:
-        iraf.gfreduce(
-            prefix + sciimg, slits='header', rawpath='./', fl_inter='no',
-            fl_addmdf='no', key_mdf='MDF', mdffile=mdffile, fl_over='no',
-            fl_trim='no', fl_bias='no', trace='no', recenter='no',
-            fl_flux='no', fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
-            fl_wavtran='yes', fl_novl='no', fl_skysub='yes', reference='eprg' +
-            flat, weights='no', wavtraname='erg' + arc, response='eprg' +
-            twilight + '_response.fits', fl_vardq=vardq, w1=wl1, w2=wl2,
-            fl_fulldq='yes')
-
-    prefix = 'st' + prefix
+        iraf.gftransform(
+            prefix + sciimg, wavtraname='erg' + arc, fl_vardq=vardq,
+            w1=wl1, w2=wl2,
+        )
+    
+    prefix = 't' + prefix
+    #
+    #   Sky subtraction
+    #
+    imagename = 's' + prefix + sciimg + '.fits'
+    if os.path.isfile(imagename):
+        pipe.skipwarn(imagename)
+    else:
+        iraf.gfskysub(
+            prefix + sciimg, expr='default', combine='median',
+            reject='avsigclip', scale='none', zero='none', weight='none',
+            sepslits='yes', fl_inter='no', lsigma=1, hsigma=1,
+        )
+    
+    prefix = 's' + prefix
     #
     #   Apply flux calibration to galaxy
     #
