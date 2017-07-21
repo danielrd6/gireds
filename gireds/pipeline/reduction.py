@@ -188,10 +188,10 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
         iraf.gfreduce(
             twilight, slits='header', rawpath='rawdir$', fl_inter='no',
             fl_addmdf='yes', key_mdf='MDF', mdffile=mdffile, weights='no',
-            fl_over=overscan, fl_trim='yes', fl_bias='yes', trace='no',
+            fl_over=overscan, fl_trim='yes', fl_bias='yes', trace='yes',
             fl_flux='no', fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
             fl_wavtran='no', fl_novl='no', fl_skysub='no',
-            recenter='no', fl_vardq=vardq, mdfdir='procdir$')
+            recenter='yes', fl_vardq=vardq, mdfdir='procdir$')
         try:
             h = pf.open('rg' + i + '.fits')
             a = h['DQ', 1]
@@ -203,9 +203,9 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
                     bitmask=1)
 
         iraf.gfreduce(
-            'prg' + twilight, slits='header', rawpath='./', fl_inter='no',
+            'prg' + twilight, slits='header', rawpath='./', fl_inter='yes',
             fl_addmdf='no', key_mdf='MDF', mdffile=mdffile, weights='no',
-            fl_over='no', fl_trim='no', fl_bias='no', trace='no',
+            fl_over='no', fl_trim='no', fl_bias='no', trace='yes',
             t_order=4, fl_flux='no', fl_gscrrej='no', fl_extract='yes',
             fl_gsappwave='no', fl_wavtran='no', fl_novl='no', fl_skysub='no',
             reference='eprg' + twilight_flat, recenter='yes', fl_vardq=vardq,
