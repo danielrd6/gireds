@@ -1,7 +1,7 @@
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
-import spectools as st
+import ifscube.spectools as st
 import pyfits as pf
 import glob
 import sys
@@ -9,7 +9,7 @@ import os
 import subprocess
 
 
-def plot_apertures(image):
+def plot_apertures(image, ext=1):
     """
     Plots the aperture numbers of an already identified image.
 
@@ -24,8 +24,8 @@ def plot_apertures(image):
     Nothing.
     """
 
-    hdu = pf.open('prg' + image)
-    apfile = './database/apeprg' + image.strip('.fits') + '_1'
+    hdu = pf.open(image)
+    apfile = './database/ape' + image.strip('.fits') + '_{:d}'.format(ext)
 
     b = np.array(
         [i.split()[3:] for i in open(apfile).readlines() if 'begin' in i])
