@@ -20,8 +20,9 @@ import os
 
 def reduce_science(rawdir, rundir, flat, arc, twilight, twilight_flat, sciimg,
                    starimg, bias, overscan, vardq, observatory, lacos,
-                   apply_lacos, lacos_xorder, lacos_yorder, bpm, instrument,
-                   slits, fl_gscrrej, wltrim_frac, grow_gap):
+                   apply_lacos, lacos_xorder, lacos_yorder, lacos_sigclip,
+                   lacos_objlim, bpm, instrument, slits, fl_gscrrej,
+                   wltrim_frac, grow_gap):
     """
     Reduction pipeline for standard star.
 
@@ -135,9 +136,10 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, twilight_flat, sciimg,
             pipe.skipwarn(imagename)
         else:
             iraf.gemcrspec(
-                prefix + sciimg, out='l' + prefix + sciimg, sigfrac=0.32,
+                prefix + sciimg, out='l' + prefix + sciimg, sigfrac=0.5,
                 niter=4, fl_vardq=vardq, xorder=lacos_xorder,
-                yorder=lacos_yorder)
+                yorder=lacos_yorder, sigclip=lacos_sigclip,
+                objlim=lacos_objlim)
         prefix = 'l' + prefix
 
     if fl_gscrrej:

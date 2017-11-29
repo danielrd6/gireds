@@ -12,7 +12,7 @@
 
 from pyraf import iraf
 import numpy as np
-import pyfits as pf
+from astropy.io import fits as pf
 import os
 import pkg_resources
 import pdb
@@ -111,6 +111,8 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
     iraf.set(procdir=rundir)  # processed files
 
     iraf.gmos.logfile = 'logfile.log'
+    iraf.glogpars.logfile = 'logfile.log'
+    iraf.gemtools.gloginit.logfile = 'logfile.log'
     iraf.gfextract.verbose = 'no'
 
     iraf.cd('procdir')
@@ -164,15 +166,16 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
             iraf.gemfix('rg' + i, out='prg' + i, method='fit1d', bitmask=1,
                         axis=1)
 
-            iraf.gfreduce(
-                'prg' + i, slits='header', rawpath='./', fl_inter='no',
-                fl_addmdf='no', key_mdf='MDF', mdffile='default',
-                weights='no', fl_over='no', fl_trim='no', fl_bias='no',
-                trace='yes', t_order=4, fl_flux='no', fl_gscrrej='no',
-                fl_extract='yes', fl_gsappwave='no', fl_wavtran='no',
-                fl_novl='no', fl_skysub='no', reference='', recenter='yes',
-                fl_vardq=vardq, fl_fixgaps='yes', grow=grow_gap)
-
+            #
+            #   Extract spectra
+            #
+            iraf.gloginit(
+                'extract.log', 'bogus', 'bogus', 'bogus', fl_append='yes')
+            iraf.gfextract(
+                'prg' + i, exslits='*', trace='yes', recenter='yes', order=4,
+                t_nsum=10, fl_novl='no', fl_fulldq=vardq, fl_gnsskysub='no',
+                fl_fixnc='no', fl_fixgaps='yes', fl_vardq=vardq, grow=grow_gap,
+                fl_inter='no', logfile='extract.log', verbose='yes')
             # Apertures
             apertures(i, vardq, mdffile, overscan, instrument, slits)
 

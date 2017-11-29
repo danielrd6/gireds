@@ -14,7 +14,7 @@
 
 from pyraf import iraf
 import numpy as np
-import pyfits as pf
+from astropy.io import fits as pf
 # import pkg_resources
 
 

@@ -1,4 +1,4 @@
-import pyfits as pf
+from astropy.io import fits as pf
 import numpy as np
 import os
 from os.path import isfile
@@ -497,6 +497,8 @@ class pipeline():
             apply_lacos=self.apply_lacos, instrument=dic['instrument'],
             lacos_xorder=self.cfg.getint('reduction', 'lacos_xorder'),
             lacos_yorder=self.cfg.getint('reduction', 'lacos_yorder'),
+            lacos_objlim=self.cfg.getint('reduction', 'lacos_objlim'),
+            lacos_sigclip=self.cfg.getint('reduction', 'lacos_sigclip'),
             bpm=dic['bpm'], slits=dic['slits'],
             fl_gscrrej=self.cfg.getboolean('reduction', 'fl_gscrrej'),
             wltrim_frac=self.cfg.getfloat('reduction', 'wltrim_frac'),
@@ -520,6 +522,8 @@ class pipeline():
             observatory=dic['observatory'], apply_lacos=self.apply_lacos,
             lacos_xorder=self.cfg.getint('reduction', 'lacos_xorder'),
             lacos_yorder=self.cfg.getint('reduction', 'lacos_yorder'),
+            lacos_objlim=self.cfg.getint('reduction', 'lacos_objlim'),
+            lacos_sigclip=self.cfg.getint('reduction', 'lacos_sigclip'),
             bpm=dic['bpm'], slits=dic['slits'], instrument=dic['instrument'],
             fl_gscrrej=self.cfg.getboolean('reduction', 'fl_gscrrej'),
             wltrim_frac=self.cfg.getfloat('reduction', 'wltrim_frac'),
