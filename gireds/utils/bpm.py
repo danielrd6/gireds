@@ -6,6 +6,33 @@ from astropy.io import fits
 import numpy as np
 
 
+def ds9reg_to_pixelranges(fname, ampwidth=544, namps=12):
+
+    with open(fname, 'r') as f:
+        reg = f.readlines()
+
+    reg = [i for i in reg if i[:3] == 'box']
+
+    a = []
+    for box in reg:
+        coords = box[box.index('(') + 1:box.index(')')].split(',')[:-1]
+        coords = [int(np.round(float(i), 0)) for i in coords]
+        cx, cy, w, h = coords
+        cx = cx + (namps - 1) * ampwidth
+
+        a.append(
+            [
+                int(cx / ampwidth) + 1,
+                int(np.round(cx % ampwidth - w / 2., 0)),
+                int(np.round(cx % ampwidth + w / 2., 0)),
+                int(np.round(cy - h / 2., 0)),
+                int(np.round(cy + h / 2., 0)),
+            ]
+        )
+
+    return a
+
+
 def make_bpm(flat_seed, bpm_file, pixel_ranges):
     """
     Makes a BPM file from a flat.
