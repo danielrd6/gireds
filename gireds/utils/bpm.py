@@ -1,6 +1,9 @@
-import pyfits as pf
-import numpy as np
+# STDLIB
 import argparse
+
+# THIRD PARTY
+from astropy.io import fits
+import numpy as np
 
 
 def make_bpm(flat_seed, bpm_file, pixel_ranges):
@@ -25,7 +28,7 @@ def make_bpm(flat_seed, bpm_file, pixel_ranges):
 
     """
 
-    bpm = pf.open(flat_seed, uint=True)
+    bpm = fits.open(flat_seed, uint=True)
     mjd = bpm[1].header['MJD-OBS']
 
     pl = np.loadtxt(pixel_ranges, dtype='int16')
@@ -51,11 +54,14 @@ def make_bpm(flat_seed, bpm_file, pixel_ranges):
 def main():
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('flat_seed',
+    parser.add_argument(
+        'flat_seed',
         help='Gprepared flat field exposure  on which the BPM will be based.')
-    parser.add_argument('bpm_file',
+    parser.add_argument(
+        'bpm_file',
         help='Output bad pixel mask.')
-    parser.add_argument('pixel_ranges',
+    parser.add_argument(
+        'pixel_ranges',
         help='ASCII file containing the rectangular region definitions to be '
         'masked.')
     args = parser.parse_args()
