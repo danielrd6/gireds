@@ -63,11 +63,10 @@ def circular_aperture(image, radius=1):
 
 def reduce_stdstar(
         rawdir, rundir, caldir, starobj, stdstar, flat, arc, twilight,
-        twilight_flat,
-        starimg, bias, overscan, vardq, lacos, observatory, apply_lacos,
-        lacos_xorder, lacos_yorder, bpm, instrument, slits,
-        fl_gscrrej, wltrim_frac=0.03, sens_order=6, sens_function='spline3',
-        apsum_radius=1):
+        twilight_flat, starimg, bias, overscan, vardq, lacos, observatory,
+        apply_lacos, lacos_xorder, lacos_yorder, lacos_objlim, lacos_sigclip,
+        bpm, instrument, slits, fl_gscrrej, wltrim_frac=0.03, sens_order=6,
+        sens_function='spline3', apsum_radius=1):
     """
     Reduction pipeline for standard star.
 
@@ -185,7 +184,8 @@ def reduce_stdstar(
                 iraf.gemcrspec(
                     prefix + starimg, out='l' + prefix + starimg, sigfrac=0.32,
                     niter=4, fl_vardq=vardq, xorder=lacos_xorder,
-                    yorder=lacos_yorder)
+                    yorder=lacos_yorder, objlim=lacos_objlim,
+                    sigclip=lacos_sigclip)
 
         prefix = 'l' + prefix
     #
