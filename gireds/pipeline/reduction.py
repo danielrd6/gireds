@@ -246,7 +246,7 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
     if not os.path.isfile(imageName):
         iraf.gswavelength(
             'erg' + arc, function='chebyshev', nsum=15, order=4, fl_inter='no',
-            nlost=5, ntarget=20, aiddebug='s', threshold=5,
+            nlost=20, ntarget=20, aiddebug='s', threshold=5,
             section='middle line')
     else:
         pipe.skipwarn(imageName)
