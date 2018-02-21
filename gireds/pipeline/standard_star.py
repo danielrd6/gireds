@@ -12,14 +12,19 @@
 
 # Table of images
 
-from pyraf import iraf
-import matplotlib.pyplot as plt
-import numpy as np
-import astropy.io.fits as pf
-from reduction import cal_reduction, wl_lims
+# STDLIB
 import pdb
-import pipe
 import os
+
+# THIRD PARTY
+import matplotlib.pyplot as plt
+import astropy.io.fits as pf
+from pyraf import iraf
+import numpy as np
+
+# LOCAL
+from ..pipeline.reduction import cal_reduction, wl_lims
+from ..pipeline import pipe
 
 
 def circular_aperture(image, radius=1):
