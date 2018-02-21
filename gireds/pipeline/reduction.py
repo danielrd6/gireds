@@ -447,9 +447,9 @@ def apertures(flat, vardq, mdffile, overscan, instrument, slits):
             for i in infoError:
                 if i['dCenter'] == 0.:
                     i['errType'] = 'twoID'  # 'doubleID'
-                elif i['dCenter'] - i['expected'] < 0:
+                elif i['dCenter'] < i['expected']:
                     i['errType'] = 'good'  # 'good_but_masked'
-                elif i['dCenter'] - i['expected'] > 0:
+                elif i['dCenter'] > i['expected']:
                     i['errType'] = 'dead'  # 'dead_but_unmasked'
 
             # Tests
@@ -497,7 +497,7 @@ def apertures(flat, vardq, mdffile, overscan, instrument, slits):
                               'yes')
                 iraf.printlog("First fiber identifyied the bump.",
                               'logfile.log', 'yes')
-                if (mdf['slits'] == 'both') and \
+                if (mdf['slits'] in ['both', 'red', 'blue']) and \
                         (infoGAP['No'][-1] > infoError['No'][-1]):
                     # Get the last unmasked aperture No. from mdf.
                     mdf['No'] = mdfSlit[mdfSlit['beam'] == 1]['No'][-1]
