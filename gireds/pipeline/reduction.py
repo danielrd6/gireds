@@ -15,7 +15,6 @@ import numpy as np
 from astropy.io import fits as pf
 import os
 import pkg_resources
-import pdb
 import pipe
 
 
@@ -368,7 +367,7 @@ def apertures(flat, vardq, mdffile, overscan, instrument, slits):
             # Read mdf data and create dictionary used in the iteration.
             mdf = {'No': 0, 'beam': 0, 'modify': False, 'reidentify': False,
                    'interactive': 'no', 'slits': slits, 'instr': instrument}
-            mdfFlatData = pf.getdata('prg' + flat + '.fits', ext=mdfext)
+            mdfFlatData = pf.getdata('prg' + flat + '.fits', extname='MDF')
             mdfSlit = mdfFlatData[750 * (slitNo - 1):750 * slitNo]
 
             # Read center/aperture info from aperg* file
@@ -622,7 +621,7 @@ def apertures(flat, vardq, mdffile, overscan, instrument, slits):
                 iraf.imdelete('prg' + flat + '.fits')
 
                 # Use default mdf
-                flatFits[mdfext].data = mdfDefaultData
+                flatFits['MDF'].data = mdfDefaultData
                 flatFits.writeto('prg' + flat + '.fits')
                 flatFits.close()
                 break
@@ -638,8 +637,8 @@ def apertures(flat, vardq, mdffile, overscan, instrument, slits):
                 iraf.imdelete('prg' + flat + '.fits')
 
                 # Modify mdf
-                modify_mask = flatFits[mdfext].data['No'] == mdf['No']
-                flatFits[mdfext].data['beam'][modify_mask] = mdf['beam']
+                modify_mask = flatFits['MDF'].data['No'] == mdf['No']
+                flatFits['MDF'].data['beam'][modify_mask] = mdf['beam']
 
                 # Add new mdf to flat
                 flatFits.writeto('prg' + flat + '.fits')
@@ -669,8 +668,8 @@ def apertures(flat, vardq, mdffile, overscan, instrument, slits):
             iraf.envget('gemini') + 'gmos/data/gsifu_slits_mdf.fits')
 
     mdfFits[0].header['filename'] = mdffile
-    mdfFlatData = pf.getdata('prg' + flat + '.fits', ext=mdfext)
-    mdfFlatHeader = pf.getheader('prg' + flat + '.fits', ext=mdfext)
+    mdfFlatData = pf.getdata('prg' + flat + '.fits', extname='MDF')
+    mdfFlatHeader = pf.getheader('prg' + flat + '.fits', extname='MDF')
     mdfFits[1].data = mdfFlatData
     mdfFits[1].header = mdfFlatHeader
     mdfFits.writeto(mdffile)
