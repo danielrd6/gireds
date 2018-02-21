@@ -13,8 +13,8 @@
 # Table of images
 
 # STDLIB
-import pdb
 import os
+import warnings
 
 # THIRD PARTY
 import matplotlib.pyplot as plt
@@ -23,8 +23,16 @@ from pyraf import iraf
 import numpy as np
 
 # LOCAL
-from ..pipeline.reduction import cal_reduction, wl_lims
-from ..pipeline import pipe
+from .reduction import cal_reduction, wl_lims
+
+
+def skipwarn(imageName):
+
+    warnText = 'Skipping alread present image {:s}.'.format(imageName)
+    warnings.warn(warnText)
+    iraf.printlog('GIREDS: ' + warnText, 'logfile.log', 'yes')
+
+    return
 
 
 def circular_aperture(image, radius=1):
@@ -133,10 +141,10 @@ def reduce_stdstar(
     starimg = starimg.strip('.fits')
     mdffile = 'mdf' + flat + '.fits'
 
-    iraf.gfreduce.bias = 'rawdir$'+bias
+    iraf.gfreduce.bias = 'rawdir$' + bias
     iraf.gfreduce.fl_fulldq = 'yes'
     iraf.gfreduce.fl_fixgaps = 'yes'
-    iraf.gireduce.bpm = 'rawdir$'+bpm
+    iraf.gireduce.bpm = 'rawdir$' + bpm
 
     cal_reduction(
         rawdir=rawdir, rundir=rundir, flat=flat, arc=arc, twilight=twilight,
@@ -147,7 +155,7 @@ def reduce_stdstar(
     #
     imageName = 'rg' + starimg + '.fits'
     if os.path.isfile(imageName):
-        pipe.skipwarn(imageName)
+        skipwarn(imageName)
     else:
 
         imageName = 'g' + starimg + '.fits'
@@ -170,7 +178,7 @@ def reduce_stdstar(
     #
     imageName = 'p' + prefix + starimg + '.fits'
     if os.path.isfile(imageName):
-        pipe.skipwarn(imageName)
+        skipwarn(imageName)
     else:
         iraf.gemfix(
             prefix + starimg, out='p' + prefix + starimg, method='fit1d',
@@ -183,7 +191,7 @@ def reduce_stdstar(
 
         imageName = 'l' + prefix + starimg + '.fits'
         if os.path.isfile(imageName):
-            pipe.skipwarn(imageName)
+            skipwarn(imageName)
         else:
             if apply_lacos:
                 iraf.gemcrspec(
@@ -200,12 +208,12 @@ def reduce_stdstar(
         imageName = 'x' + prefix + starimg + '.fits'
 
         if os.path.isfile(imageName):
-            pipe.skipwarn(imageName)
+            skipwarn(imageName)
             fl_gscrrej = False
         else:
             imageName = 'ex' + prefix + starimg + '.fits'
             if os.path.isfile(imageName):
-                pipe.skipwarn(imageName)
+                skipwarn(imageName)
             else:
                 iraf.gfreduce(
                     prefix + starimg, slits='header', rawpath='./',
@@ -223,7 +231,7 @@ def reduce_stdstar(
         imageName = 'e' + prefix + starimg + '.fits'
 
         if os.path.isfile(imageName):
-            pipe.skipwarn(imageName)
+            skipwarn(imageName)
         else:
             iraf.gfreduce(
                 prefix + starimg, slits='header', rawpath='./',
@@ -243,7 +251,7 @@ def reduce_stdstar(
     wl1, wl2 = wl_lims(prefix + starimg + '.fits', wltrim_frac)
     imageName = 't' + prefix + starimg + '.fits'
     if os.path.isfile(imageName):
-        pipe.skipwarn(imageName)
+        skipwarn(imageName)
     else:
         iraf.gfreduce(
             prefix + starimg, slits='header', rawpath='./', fl_inter='no',
@@ -262,7 +270,7 @@ def reduce_stdstar(
     #
     imageName = 's' + prefix + starimg + '.fits'
     if os.path.isfile(imageName):
-        pipe.skipwarn(imageName)
+        skipwarn(imageName)
     else:
         iraf.gfreduce(
             prefix + starimg, slits='header', rawpath='./', fl_inter='no',
@@ -289,7 +297,7 @@ def reduce_stdstar(
 
     imageName = 'a' + prefix + starimg + '.fits'
     if os.path.isfile(imageName):
-        pipe.skipwarn(imageName)
+        skipwarn(imageName)
     else:
         iraf.gfapsum(
             prefix + starimg, fl_inter='no', lthreshold='INDEF',
@@ -300,7 +308,7 @@ def reduce_stdstar(
     #
     if os.path.isfile('std' + starimg)\
             and os.path.isfile('sens' + starimg + '.fits'):
-        pipe.skipwarn('std{0:s} and sens{0:s}.fits'.format(starimg))
+        skipwarn('std{0:s} and sens{0:s}.fits'.format(starimg))
     else:
 
         imageName = 'std' + starimg
@@ -326,7 +334,7 @@ def reduce_stdstar(
     #
     imageName = 'c' + prefix + starimg + '.fits'
     if os.path.isfile(imageName):
-        pipe.skipwarn(imageName)
+        skipwarn(imageName)
     else:
         iraf.gscalibrate(
             prefix + starimg, sfuncti='sens' + starimg,
@@ -337,7 +345,7 @@ def reduce_stdstar(
     #
     imageName = 'dc' + prefix + starimg + '.fits'
     if os.path.isfile(imageName):
-        pipe.skipwarn(imageName)
+        skipwarn(imageName)
     else:
         iraf.gfcube(
             'c' + prefix + starimg, outimage='dc' + prefix + starimg,
@@ -354,7 +362,7 @@ def reduce_stdstar(
 
     imageName = 'ca' + prefix + starimg + '.fits'
     if os.path.isfile(imageName):
-        pipe.skipwarn(imageName)
+        skipwarn(imageName)
     else:
         iraf.gscalibrate(
             'a' + prefix + starimg, sfuncti='sens' + starimg,

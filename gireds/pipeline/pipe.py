@@ -1,21 +1,26 @@
-from astropy.io import fits as pf
-import numpy as np
-import os
-from os.path import isfile
-import ConfigParser
-import time
-import glob
-import standard_star
-import pkg_resources
-# from standard_star import reduce_stdstar
-from galaxy import reduce_science
-from pyraf import iraf
+# STDLIB
 import argparse
 import json
 import subprocess
 import warnings
+import glob
+import time
+import os
+import ConfigParser
+from os.path import isfile
+
+# THIRD PARTY
+import pkg_resources
+from astropy.io import fits
+import numpy as np
+from pyraf import iraf
+
+# LOCAL
+from . import standard_star
+from .galaxy import reduce_science
+from .merges import merge_cubes
 # from distutils.sysconfig import get_python_lib
-from merges import merge_cubes
+# from standard_star import reduce_stdstar
 
 
 def get_git_hash(git_dir, short=True):
@@ -56,8 +61,8 @@ def closest_in_time(images, target):
 
     """
 
-    tgt_mjd = pf.getheader(target, ext=1)['mjd-obs']
-    mjds = np.array([pf.getheader(i, ext=1)['mjd-obs'] for i in images])
+    tgt_mjd = fits.getheader(target, ext=1)['mjd-obs']
+    mjds = np.array([fits.getheader(i, ext=1)['mjd-obs'] for i in images])
 
     return images[abs(mjds - tgt_mjd).argsort()[1]]
 
@@ -149,7 +154,7 @@ class pipeline():
         l.sort()
         idx = np.arange(len(l))
 
-        headers = [pf.open(i)[0].header for i in l]
+        headers = [fits.open(i)[0].header for i in l]
 
         field_names = ['filename', 'observatory', 'instrument', 'detector',
                        'grating', 'filter1', 'maskname']
@@ -177,8 +182,8 @@ class pipeline():
         nstar = sum(1 for line in open(starinfo_file))
         infoname = ['obj', 'std', 'caldir', 'altname']
         infofmt = ['|S25', '|S25', '|S25', '|S25']
-        starinfo = np.zeros(nstar,  dtype={'names': infoname, 'formats':
-                                           infofmt})
+        starinfo = np.zeros(nstar, dtype={
+            'names': infoname, 'formats': infofmt})
         with open(starinfo_file, 'r') as arq:
             for i in range(nstar):
                 linelist = arq.readline().split()
@@ -197,8 +202,8 @@ class pipeline():
         headers_ext1 = []
         for i in l:
             try:
-                headers.append(pf.getheader(i, ext=0))
-                headers_ext1.append(pf.getheader(i, ext=1))
+                headers.append(fits.getheader(i, ext=0))
+                headers_ext1.append(fits.getheader(i, ext=1))
             except IOError:
                 print('IOError reading file {:s}.'.format(i))
                 raise SystemExit(0)
@@ -239,8 +244,8 @@ class pipeline():
         for i, j in enumerate(images):
 
             # Take great care when changing this.
-            hdr = pf.getheader(j, ext=0)
-            hdr_ext1 = pf.getheader(j, ext=1)
+            hdr = fits.getheader(j, ext=0)
+            hdr_ext1 = fits.getheader(j, ext=1)
             mjd = hdr_ext1['mjd-obs']
 
             element = {
@@ -339,7 +344,7 @@ class pipeline():
                     (~hdrpars['overscan'] & (self.fl_over == 'no'))
                 )]
 
-            im = pf.open(element['image'])
+            im = fits.open(element['image'])
             ishape = np.array(im[1].data.shape, dtype='float32')
             im.close()
             del(im)
@@ -349,7 +354,7 @@ class pipeline():
 
             for biasImage in element['bias']:
 
-                bias = pf.open(biasImage)
+                bias = fits.open(biasImage)
                 bshape = np.array(bias[1].data.shape, dtype='float32')
                 bias.close()
                 del(bias)
@@ -408,10 +413,8 @@ class pipeline():
             objs = self.object_filter.split(',')
             sci_ims = [
                 i for i in associated if (
-                    (i['obsclass'] == 'science') &\
-                    (i['object'] in objs)
-                )
-            ]
+                    (i['obsclass'] == 'science') &
+                    (i['object'] in objs))]
         else:
             sci_ims = [i for i in associated if i['obsclass'] == 'science']
 
@@ -535,11 +538,12 @@ class pipeline():
 
         # Read some keywords. Some of them can be read in step 0.
         imgcube = [cube_prefix + sci['image'] for sci in sciobj]
-        xoff = [pf.getval(img, ext=0, keyword='xoffset') for img in imgcube]
-        yoff = [pf.getval(img, ext=0, keyword='yoffset') for img in imgcube]
-        crv3 = [pf.getval(img, ext=1, keyword='crval3') for img in imgcube]
-        cd3 = [pf.getval(img, ext=1, keyword='cdelt3') for img in imgcube]
-        cd1 = [abs(pf.getval(img, ext=1, keyword='cdelt1')) for img in imgcube]
+        xoff = [fits.getval(img, ext=0, keyword='xoffset') for img in imgcube]
+        yoff = [fits.getval(img, ext=0, keyword='yoffset') for img in imgcube]
+        crv3 = [fits.getval(img, ext=1, keyword='crval3') for img in imgcube]
+        cd3 = [fits.getval(img, ext=1, keyword='cdelt3') for img in imgcube]
+        cd1 = [abs(fits.getval(img, ext=1, keyword='cdelt1'))
+               for img in imgcube]
 
         merge_cubes(
             rawdir=self.raw_dir, rundir=self.run_dir, name=name,

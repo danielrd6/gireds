@@ -10,12 +10,26 @@
 
 # Table of images
 
+# STDLIB
+import os
+import warnings
+
+# THIRD PARTY
+from astropy.io import fits
 from pyraf import iraf
 import numpy as np
-from astropy.io import fits as pf
-import os
 import pkg_resources
-import pipe
+
+# LOCAL
+
+
+def skipwarn(imageName):
+
+    warnText = 'Skipping alread present image {:s}.'.format(imageName)
+    warnings.warn(warnText)
+    iraf.printlog('GIREDS: ' + warnText, 'logfile.log', 'yes')
+
+    return
 
 
 def wl_lims(image, trim_fraction=0.02):
@@ -39,7 +53,7 @@ def wl_lims(image, trim_fraction=0.02):
         Upper limit in wavelength.
     """
 
-    hdu = pf.open(image)
+    hdu = fits.open(image)
 
     nimages = 0
     for i in hdu:
@@ -51,7 +65,7 @@ def wl_lims(image, trim_fraction=0.02):
         crval, crpix, dwl = [h[i] for i in ['CRVAL1', 'CRPIX1', 'CD1_1']]
         npix = np.shape(hdu[2].data)[1]
 
-        wl = crval + (np.arange(1, npix+1, dtype='float32') - crpix) * dwl
+        wl = crval + (np.arange(1, npix + 1, dtype='float32') - crpix) * dwl
 
     if nimages == 2:
         h = [hdu[2].header, hdu[3].header]
@@ -134,7 +148,7 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
     for i in [flat, twilight_flat]:
         imageName = 'eprg' + i + '.fits'
         if os.path.isfile(imageName):
-            pipe.skipwarn(imageName)
+            skipwarn(imageName)
         else:
             imageName = i + '.fits'
             for j in ['g', 'r', 'p']:
@@ -155,12 +169,16 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
                 fl_skysub='no', recenter='no', fl_vardq=vardq,
                 fl_fulldq=vardq, mdfdir='gmos$data/')
 
-            try:
-                h = pf.open('rg' + i + '.fits')
-                a = h['DQ', 1]
-                del(a)
-            except KeyError as err:
-                return
+            # try:
+            #     h = fits.open('rg' + i + '.fits')
+            #     a = h['DQ', 1]
+            #     del(a)
+            # except KeyError:
+            #     return
+            with fits.open('rg' + i + '.fits') as h:
+                if 'DQ' not in h:
+                    return
+            del(h)
             # Gemfix
             iraf.gemfix('rg' + i, out='prg' + i, method='fit1d', bitmask=1,
                         axis=1)
@@ -185,7 +203,7 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
 
     imageName = 'eprg' + twilight + '.fits'
     if os.path.isfile(imageName):
-        pipe.skipwarn(imageName)
+        skipwarn(imageName)
     else:
         iraf.gfreduce(
             twilight, slits='header', rawpath='rawdir$', fl_inter='no',
@@ -194,12 +212,16 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
             fl_flux='no', fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
             fl_wavtran='no', fl_novl='no', fl_skysub='no',
             recenter='yes', fl_vardq=vardq, mdfdir='procdir$')
-        try:
-            h = pf.open('rg' + i + '.fits')
-            a = h['DQ', 1]
-            del(a)
-        except KeyError as err:
-            return
+        # try:
+        #     h = fits.open('rg' + i + '.fits')
+        #     a = h['DQ', 1]
+        #     del(a)
+        # except KeyError:
+        #     return
+        with fits.open('rg' + i + '.fits') as h:
+            if 'DQ' not in h:
+                return
+        del(h)
         # Gemfix
         iraf.gemfix('rg' + twilight, out='prg' + twilight, method='fixpix',
                     bitmask=1)
@@ -217,7 +239,7 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
     #
     imageName = 'eprg' + twilight + '_response.fits'
     if os.path.isfile(imageName):
-        pipe.skipwarn(imageName)
+        skipwarn(imageName)
     else:
         iraf.gfresponse(
             'eprg' + twilight_flat, out='eprg' + twilight + '_response',
@@ -228,7 +250,7 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
     #
     imageName = 'erg' + arc + '.fits'
     if os.path.isfile(imageName):
-        pipe.skipwarn(imageName)
+        skipwarn(imageName)
     else:
         iraf.gfreduce(
             arc, slits='header', rawpath='rawdir$', fl_inter='no',
@@ -248,7 +270,7 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
             nlost=20, ntarget=20, aiddebug='s', threshold=5,
             section='middle line')
     else:
-        pipe.skipwarn(imageName)
+        skipwarn(imageName)
     #
     #   Apply wavelength solution to the lamp 2D spectra
     #
@@ -256,7 +278,7 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
 
     imageName = 'terg' + arc + '.fits'
     if os.path.isfile(imageName):
-        pipe.skipwarn(imageName)
+        skipwarn(imageName)
     else:
         iraf.gftransform(
             'erg' + arc, wavtran='erg' + arc, outpref='t', fl_vardq='no',
@@ -341,7 +363,7 @@ def apertures(flat, vardq, mdffile, overscan, instrument, slits):
     Example: No tests were made for the case slits=blue.
     """
     # Read default mdf used before this function
-    mdfDefaultData = pf.getdata('prg' + flat + '.fits', extname='MDF')
+    mdfDefaultData = fits.getdata('prg' + flat + '.fits', extname='MDF')
 
     # Number of slits
     if slits == 'both':
@@ -367,7 +389,7 @@ def apertures(flat, vardq, mdffile, overscan, instrument, slits):
             # Read mdf data and create dictionary used in the iteration.
             mdf = {'No': 0, 'beam': 0, 'modify': False, 'reidentify': False,
                    'interactive': 'no', 'slits': slits, 'instr': instrument}
-            mdfFlatData = pf.getdata('prg' + flat + '.fits', extname='MDF')
+            mdfFlatData = fits.getdata('prg' + flat + '.fits', extname='MDF')
             mdfSlit = mdfFlatData[750 * (slitNo - 1):750 * slitNo]
 
             # Read center/aperture info from aperg* file
@@ -617,7 +639,7 @@ def apertures(flat, vardq, mdffile, overscan, instrument, slits):
                 [os.remove(apergFile.replace('_', i)) for i in apergPrefList]
 
                 # Open flat data
-                flatFits = pf.open('prg' + flat + '.fits')
+                flatFits = fits.open('prg' + flat + '.fits')
                 iraf.imdelete('prg' + flat + '.fits')
 
                 # Use default mdf
@@ -633,7 +655,7 @@ def apertures(flat, vardq, mdffile, overscan, instrument, slits):
                 [os.remove(apergFile.replace('_', i)) for i in apergPrefList]
 
                 # Open flat data
-                flatFits = pf.open('prg' + flat + '.fits')
+                flatFits = fits.open('prg' + flat + '.fits')
                 iraf.imdelete('prg' + flat + '.fits')
 
                 # Modify mdf
@@ -659,17 +681,17 @@ def apertures(flat, vardq, mdffile, overscan, instrument, slits):
     # Copy mdf used by flat.
     # File 'gsifu_slits_mdf.fits' is used as base (arbitrarily chosen)
     if 'UR_DIR_PKG' in iraf.envget('gemini'):
-        mdfFits = pf.open(
+        mdfFits = fits.open(
             iraf.envget('UR_DIR_PKG') +
             iraf.envget('gemini').replace('UR_DIR_PKG$/', '') +
             'gmos/data/gsifu_slits_mdf.fits')
     else:
-        mdfFits = pf.open(
+        mdfFits = fits.open(
             iraf.envget('gemini') + 'gmos/data/gsifu_slits_mdf.fits')
 
     mdfFits[0].header['filename'] = mdffile
-    mdfFlatData = pf.getdata('prg' + flat + '.fits', extname='MDF')
-    mdfFlatHeader = pf.getheader('prg' + flat + '.fits', extname='MDF')
+    mdfFlatData = fits.getdata('prg' + flat + '.fits', extname='MDF')
+    mdfFlatHeader = fits.getheader('prg' + flat + '.fits', extname='MDF')
     mdfFits[1].data = mdfFlatData
     mdfFits[1].header = mdfFlatHeader
     mdfFits.writeto(mdffile)
