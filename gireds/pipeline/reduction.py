@@ -342,9 +342,7 @@ def apertures(flat, vardq, mdffile, overscan, instrument, slits):
     Example: No tests were made for the case slits=blue.
     """
     # Read default mdf used before this function
-    nsciext = pf.getval('prg' + flat + '.fits', ext=0, keyword='nsciext')
-    mdfext = nsciext + 1
-    mdfDefaultData = pf.getdata('prg' + flat + '.fits', ext=mdfext)
+    mdfDefaultData = pf.getdata('prg' + flat + '.fits', extname='MDF')
 
     # Number of slits
     if slits == 'both':
