@@ -1,12 +1,18 @@
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-import numpy as np
-import ifscube.spectools as st
-import pyfits as pf
+# STDLIB
 import glob
 import sys
 import os
 import subprocess
+
+# THIRD PARTY
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import numpy as np
+from astropy.io import fits
+import ifscube.spectools as st
+
+# LOCAL
+
 
 
 def plot_apertures(image, ext=1):
@@ -24,7 +30,7 @@ def plot_apertures(image, ext=1):
     Nothing.
     """
 
-    hdu = pf.open(image)
+    hdu = fits.open(image)
     apfile = './database/ape' + image.strip('.fits') + '_{:d}'.format(ext)
 
     b = np.array(
@@ -58,7 +64,7 @@ def plot_summary(cube_file, savefigs=True, img_format='pdf'):
     Saves a figure for each cube, with average spectra and image.
     """
 
-    hdu = pf.open(cube_file)
+    hdu = fits.open(cube_file)
 
     cube = hdu[1].data
     hdr = hdu[0].header
