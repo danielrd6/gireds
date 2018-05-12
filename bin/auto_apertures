@@ -1,0 +1,8 @@
+#!/usr/bin/env python
+
+
+if __name__ == '__main__':
+
+    from gireds.utils import auto_apertures
+
+    auto_apertures.main()
