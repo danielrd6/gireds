@@ -13,6 +13,7 @@
 # STDLIB
 import os
 import warnings
+import random
 
 # THIRD PARTY
 from astropy.io import fits
@@ -23,11 +24,24 @@ import pkg_resources
 # LOCAL
 
 
+def rename_log(logFileName):
+
+    iraf.gloginit(
+        logFileName, 'bogus', 'bogus', 'bogus', fl_append='yes')
+
+    if iraf.gloginit.status != 0:
+        h = ('_{:32x}'.format(random.getrandbits(256)))[:8] + '.'
+        p = logFileName.split('.')
+        os.rename(logFileName, p[0] + h + p[1])
+
+    return
+
+
 def skipwarn(imageName):
 
     warnText = 'Skipping alread present image {:s}.'.format(imageName)
     warnings.warn(warnText)
-    iraf.printlog('GIREDS: ' + warnText, 'logfile.log', 'yes')
+    iraf.printlog('GIREDS: ' + warnText, iraf.gmos.logfile, 'yes')
 
     return
 
@@ -124,8 +138,6 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
     iraf.set(procdir=rundir)  # processed files
 
     iraf.gmos.logfile = 'logfile.log'
-    iraf.glogpars.logfile = 'logfile.log'
-    iraf.gemtools.gloginit.logfile = 'logfile.log'
     iraf.gfextract.verbose = 'no'
 
     iraf.cd('procdir')
@@ -140,7 +152,7 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
     iraf.gfreduce.fl_fixgaps = 'yes'
     iraf.gfreduce.grow = grow_gap
     iraf.gireduce.bpm = 'rawdir$' + bpm
-    iraf.gfextract.verbose = 'no'
+    iraf.gfextract.verbose = 'yes'
 
     #
     #   Flat reduction
@@ -156,7 +168,7 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
                 if os.path.isfile(imageName):
                     iraf.printlog(
                         'GIREDS: WARNING: Removing file {:s}'
-                        .format(imageName), 'logfile.log', 'yes')
+                        .format(imageName), iraf.gmos.logfile, 'yes')
                     iraf.delete(imageName)
 
             mdffile = 'mdf' + i + '.fits'
@@ -186,13 +198,12 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
             #
             #   Extract spectra
             #
-            iraf.gloginit(
-                'extract.log', 'bogus', 'bogus', 'bogus', fl_append='yes')
+            rename_log(iraf.gmos.logfile)
             iraf.gfextract(
                 'prg' + i, exslits='*', trace='yes', recenter='yes', order=4,
                 t_nsum=10, fl_novl='no', fl_fulldq=vardq, fl_gnsskysub='no',
                 fl_fixnc='no', fl_fixgaps='yes', fl_vardq=vardq, grow=grow_gap,
-                fl_inter='no', logfile='extract.log', verbose='yes')
+                fl_inter='no')
             # Apertures
             apertures(i, vardq, mdffile, overscan, instrument, slits)
 
@@ -205,6 +216,7 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
     if os.path.isfile(imageName):
         skipwarn(imageName)
     else:
+        rename_log('extract.log')
         iraf.gfreduce(
             twilight, slits='header', rawpath='rawdir$', fl_inter='no',
             fl_addmdf='yes', key_mdf='MDF', mdffile=mdffile, weights='no',
@@ -218,14 +230,15 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
         #     del(a)
         # except KeyError:
         #     return
-        with fits.open('rg' + i + '.fits') as h:
-            if 'DQ' not in h:
-                return
-        del(h)
+        # with fits.open('rg' + i + '.fits') as h:
+        #     if 'DQ' not in h:
+        #         return
+        # del(h)
         # Gemfix
         iraf.gemfix('rg' + twilight, out='prg' + twilight, method='fixpix',
                     bitmask=1)
 
+        rename_log(iraf.gmos.logfile)
         iraf.gfreduce(
             'prg' + twilight, slits='header', rawpath='./', fl_inter='no',
             fl_addmdf='no', key_mdf='MDF', mdffile=mdffile, weights='no',
@@ -244,44 +257,55 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
         iraf.gfresponse(
             'eprg' + twilight_flat, out='eprg' + twilight + '_response',
             skyimage='eprg' + twilight, order=95, fl_inter='no',
-            func='spline3', sample='*', verbose='yes')
+            func='spline3', sample='*', verbose='no')
     #
     #   Arc reduction
     #
-    imageName = 'erg' + arc + '.fits'
+    imageName = 'eprg' + arc + '.fits'
     if os.path.isfile(imageName):
         skipwarn(imageName)
     else:
+        prefix = 'rg'
         iraf.gfreduce(
             arc, slits='header', rawpath='rawdir$', fl_inter='no',
             fl_addmdf='yes', key_mdf='MDF', mdffile=mdffile, weights='no',
-            fl_over=overscan, fl_trim='yes', fl_bias='no', trace='no',
-            recenter='no', fl_flux='no', fl_gscrrej='no', fl_extract='yes',
+            fl_over=overscan, fl_trim='yes', fl_bias='yes', trace='no',
+            recenter='no', fl_flux='no', fl_gscrrej='no', fl_extract='no',
             fl_gsappwave='no', fl_wavtran='no', fl_novl='no', fl_skysub='no',
-            reference='eprg' + flat, fl_vardq='no', mdfdir='procdir$')
+            reference='eprg' + flat, fl_vardq='yes', mdfdir='procdir$')
+        iraf.gemfix(prefix + arc, out='prg' + arc, method='fixpix',
+                    bitmask=1)
+        prefix = 'p' + prefix
+        iraf.gfextract(
+            prefix + arc, exslits='*', trace='no', recenter='no', order=4,
+            t_nsum=10, fl_novl='no', fl_fulldq=vardq, fl_gnsskysub='no',
+            fl_fixnc='no', fl_fixgaps='yes', fl_vardq=vardq, grow=grow_gap,
+            fl_inter='no', reference='eprg' + flat,
+            response='eprg' + twilight + '_response')
+        prefix = 'e' + prefix
     #
     #   Finding wavelength solution
     #   Note: the automatic identification is very good
     #
-    imageName = './database/iderg' + arc + '_001'
+    imageName = './database/id' + prefix + arc + '_001'
     if not os.path.isfile(imageName):
         iraf.gswavelength(
-            'erg' + arc, function='chebyshev', nsum=15, order=4, fl_inter='no',
-            nlost=20, ntarget=20, aiddebug='s', threshold=5,
+            prefix + arc, function='chebyshev', nsum=15, order=4,
+            fl_inter='no', nlost=20, ntarget=20, aiddebug='s', threshold=5,
             section='middle line')
     else:
         skipwarn(imageName)
     #
     #   Apply wavelength solution to the lamp 2D spectra
     #
-    wl1, wl2 = wl_lims('erg' + arc + '.fits', wltrim_frac)
+    wl1, wl2 = wl_lims(prefix + arc + '.fits', wltrim_frac)
 
-    imageName = 'terg' + arc + '.fits'
+    imageName = 't' + prefix + arc + '.fits'
     if os.path.isfile(imageName):
         skipwarn(imageName)
     else:
         iraf.gftransform(
-            'erg' + arc, wavtran='erg' + arc, outpref='t', fl_vardq='no',
+            prefix + arc, wavtran=prefix + arc, outpref='t', fl_vardq='no',
             w1=wl1, w2=wl2)
 
 
@@ -378,10 +402,10 @@ def apertures(flat, vardq, mdffile, overscan, instrument, slits):
     nIter = 0
     while isIterating:
         nIter += 1
-        iraf.printlog(80 * "-", 'logfile.log', 'yes')
-        iraf.printlog(29 * " " + "APERTURES", 'logfile.log', 'yes')
+        iraf.printlog(80 * "-", iraf.gmos.logfile, 'yes')
+        iraf.printlog(29 * " " + "APERTURES", iraf.gmos.logfile, 'yes')
         iraf.printlog(
-            28 * " " + "Iteration " + str(nIter), 'logfile.log', 'yes')
+            28 * " " + "Iteration " + str(nIter), iraf.gmos.logfile, 'yes')
 
         reidentify_out = 0
         isGood_out = 0
@@ -503,22 +527,22 @@ def apertures(flat, vardq, mdffile, overscan, instrument, slits):
                 isGood_out += 1
                 if isGood_out == numSlit:
                     isIterating = False
-                    iraf.printlog("\nAPERTURES result: GOOD", 'logfile.log',
-                                  'yes')
+                    iraf.printlog(
+                        "\nAPERTURES result: GOOD", iraf.gmos.logfile, 'yes')
             elif resultError:
-                iraf.printlog("\nAPERTURES result: ERROR", 'logfile.log',
+                iraf.printlog("\nAPERTURES result: ERROR", iraf.gmos.logfile,
                               'yes')
                 iraf.printlog("After 7 iteration, APERTURES didn't fix the" +
-                              "problem.", 'logfile.log', 'yes')
+                              "problem.", iraf.gmos.logfile, 'yes')
                 iraf.printlog("Repeat identification with default mdf.",
-                              'logfile.log', 'yes')
+                              iraf.gmos.logfile, 'yes')
             elif isFirstShifted:
                 mdf['modify'] = True
                 mdf['reidentify'] = True
-                iraf.printlog("\nAPERTURES result: ERROR", 'logfile.log',
+                iraf.printlog("\nAPERTURES result: ERROR", iraf.gmos.logfile,
                               'yes')
                 iraf.printlog("First fiber identifyied the bump.",
-                              'logfile.log', 'yes')
+                              iraf.gmos.logfile, 'yes')
                 if (mdf['slits'] in ['both', 'red', 'blue']) and \
                         (infoGAP['No'][-1] > infoError['No'][-1]):
                     # Get the last unmasked aperture No. from mdf.
@@ -526,93 +550,94 @@ def apertures(flat, vardq, mdffile, overscan, instrument, slits):
                     mdf['beam'] = -1
                     iraf.printlog("Assuming that the last aperture should" +
                                   "masked." + "(Slits='both')",
-                                  'logfile.log', 'yes')
+                                  iraf.gmos.logfile, 'yes')
                     iraf.printlog("Mask aperture:" + str(mdf['No']),
-                                  'logfile.log', 'yes')
+                                  iraf.gmos.logfile, 'yes')
                 elif errType[0] == 'dead':
                     mdf['No'] = infoError[0]['No']
                     mdf['beam'] = -1
                     iraf.printlog("Bad fiber that is unmasked.",
-                                  'logfile.log', 'yes')
+                                  iraf.gmos.logfile, 'yes')
                     iraf.printlog("Mask aperture:" + str(mdf['No']),
-                                  'logfile.log', 'yes')
+                                  iraf.gmos.logfile, 'yes')
                 else:
                     noSolution = True
             else:
                 mdf['reidentify'] = True
                 mdf['modify'] = True
-                iraf.printlog("\nAPERTURES result: ERROR", 'logfile.log',
+                iraf.printlog("\nAPERTURES result: ERROR", iraf.gmos.logfile,
                               'yes')
                 if isNoneShift:
-                    iraf.printlog("No Shift.", 'logfile.log', 'yes')
+                    iraf.printlog("No Shift.", iraf.gmos.logfile, 'yes')
                     # Just errors inside the blocks
                     infoError = infoError[infoError['where'] == 'inside']
                     if errType[-1] == 'dead':
                         mdf['No'] = infoError[0]['No_next']
                         mdf['beam'] = -1
                         iraf.printlog("Bad fiber that is unmasked.",
-                                      'logfile.log', 'yes')
+                                      iraf.gmos.logfile, 'yes')
                         iraf.printlog("Mask aperture:" + str(mdf['No']),
-                                      'logfile.log', 'yes')
+                                      iraf.gmos.logfile, 'yes')
                     else:
                         noSolution = True
                 elif isBothShift:
-                    iraf.printlog("Both shift.", 'logfile.log', 'yes')
+                    iraf.printlog("Both shift.", iraf.gmos.logfile, 'yes')
                     if (errType[0] == errType[-1] == 'dead'):
                         mdf['No'] = infoError[0]['No_next']
                         mdf['beam'] = -1
                         iraf.printlog("Two bad fibers that are unmasked.",
-                                      'logfile.log', 'yes')
+                                      iraf.gmos.logfile, 'yes')
                         iraf.printlog("Mask aperture:" + str(mdf['No']),
-                                      'logfile.log', 'yes')
+                                      iraf.gmos.logfile, 'yes')
                     else:
                         noSolution = True
                 else:
                     if isLeftShift:
-                        iraf.printlog("Just left shift.", 'logfile.log', 'yes')
-                        if (mdf['slits'] == 'both') and \
+                        iraf.printlog(
+                            "Just left shift.", iraf.gmos.logfile, 'yes')
+                        if (mdf['slits'] in ['both', 'red', 'blue']) and \
                                 (infoGAP['No'][-1] > infoError['No'][-1]):
                             # Get the last unmasked aperture No. from mdf.
                             mdf['No'] = mdfSlit[mdfSlit['beam'] == 1]['No'][-1]
                             mdf['beam'] = -1
                             iraf.printlog("Assuming that the last aperture" +
                                           "should masked. (Slits=both)",
-                                          'logfile.log', 'yes')
+                                          iraf.gmos.logfile, 'yes')
                             iraf.printlog("Mask aperture:" + str(mdf['No']),
-                                          'logfile.log', 'yes')
+                                          iraf.gmos.logfile, 'yes')
                         elif errType[0] == 'good':
                             mdf['No'] = infoError[0]['No'] + 1
                             mdf['beam'] = 1
                             iraf.printlog("Good fiber that is masked.",
-                                          'logfile.log', 'yes')
+                                          iraf.gmos.logfile, 'yes')
                             iraf.printlog("Unmask aperture:" + str(mdf['No']),
-                                          'logfile.log', 'yes')
+                                          iraf.gmos.logfile, 'yes')
                         elif errType[-1] == 'dead':
                             iraf.printlog("Bad fiber that is unmasked.",
-                                          'logfile.log', 'yes')
+                                          iraf.gmos.logfile, 'yes')
                             mdf['beam'] = -1
                             if infoError[-1]['No_next'] in infoGAP['No']:
                                 mdf['No'] = infoError[-1]['No_next']
-                                iraf.printlog("Mask aperture:" +
-                                              str(mdf['No']), 'logfile.log',
-                                              'yes')
+                                iraf.printlog(
+                                    "Mask aperture:" + str(mdf['No']),
+                                    iraf.gmos.logfile, 'yes')
                             else:
                                 mdf['No'] = infoError[-1]['No']
-                                iraf.printlog("Mask aperture:" +
-                                              str(mdf['No']), 'logfile.log',
-                                              'yes')
+                                iraf.printlog(
+                                    "Mask aperture:" + str(mdf['No']),
+                                    iraf.gmos.logfile, 'yes')
                         else:
                             noSolution = True
                     elif isRightShift:
-                        iraf.printlog("Just right shift.", 'logfile.log',
+                        iraf.printlog("Just right shift.", iraf.gmos.logfile,
                                       'yes')
                         if errType[0] == 'dead':
                             mdf['No'] = infoError[0]['No_next']
                             mdf['beam'] = -1
                             iraf.printlog("Bad fiber that is unmasked.",
-                                          'logfile.log', 'yes')
+                                          iraf.gmos.logfile, 'yes')
                             iraf.printlog("Mask aperture:" + str(mdf['No']),
-                                          'logfile.log', 'yes')
+                                          iraf.gmos.logfile, 'yes')
                         else:
                             noSolution = True
                     else:
@@ -621,11 +646,12 @@ def apertures(flat, vardq, mdffile, overscan, instrument, slits):
 
             # No solution message
             if noSolution:
-                iraf.printlog("\nAPERTURES result: ERROR", 'logfile.log',
-                              'yes')
-                iraf.printlog("No solution was found.", 'logfile.log', 'yes')
+                iraf.printlog(
+                    "\nAPERTURES result: ERROR", iraf.gmos.logfile, 'yes')
+                iraf.printlog(
+                    "No solution was found.", iraf.gmos.logfile, 'yes')
                 iraf.printlog("Repeat identification with default mdf.",
-                              'logfile.log', 'yes')
+                              iraf.gmos.logfile, 'yes')
 
             # Repeat identification with default mdf if resulted in error or
             # no solution was found.
