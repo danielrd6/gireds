@@ -223,7 +223,7 @@ def reduce_stdstar(
                     fl_gscrrej=fl_gscrrej, fl_extract='yes',
                     fl_gsappwave='yes', fl_wavtran='no', fl_novl='no',
                     fl_skysub='no', reference='eprg' + flat, weights='no',
-                    wavtraname='erg' + arc,
+                    wavtraname='eprg' + arc,
                     response='eprg' + twilight + '_response.fits',
                     fl_vardq=vardq)
         prefix = 'ex' + prefix
@@ -241,7 +241,7 @@ def reduce_stdstar(
                 fl_gscrrej=fl_gscrrej, fl_extract='yes',
                 fl_gsappwave='yes', fl_wavtran='no', fl_novl='no',
                 fl_skysub='no', reference='eprg' + flat, weights='no',
-                wavtraname='erg' + arc,
+                wavtraname='eprg' + arc,
                 response='eprg' + twilight + '_response.fits',
                 fl_vardq=vardq)
         prefix = 'e' + prefix
@@ -260,7 +260,7 @@ def reduce_stdstar(
             fl_flux='no',
             fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
             fl_wavtran='yes', fl_novl='no', fl_skysub='no',
-            reference='eprg' + flat, weights='no', wavtraname='erg' + arc,
+            reference='eprg' + flat, weights='no', wavtraname='eprg' + arc,
             response='eprg' + twilight + '_response.fits', fl_vardq=vardq,
             w1=wl1, w2=wl2)
     prefix = 't' + prefix
@@ -279,7 +279,7 @@ def reduce_stdstar(
             fl_flux='no',
             fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
             fl_wavtran='no', fl_novl='no', fl_skysub='yes',
-            reference='eprg' + flat, weights='no', wavtraname='erg' + arc,
+            reference='eprg' + flat, weights='no', wavtraname='eprg' + arc,
             response='eprg' + twilight + '_response.fits', fl_vardq=vardq,
             w1=wl1, w2=wl2)
     prefix = 's' + prefix

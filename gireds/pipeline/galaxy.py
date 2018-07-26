@@ -157,7 +157,7 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, twilight_flat, sciimg,
             fl_flux='no', fl_gscrrej=fl_gscrrej, fl_extract='yes',
             fl_gsappwave='yes', fl_wavtran='no', fl_novl='no', fl_skysub='no',
             grow=grow_gap, reference='eprg' + flat, weights='no',
-            wavtraname='erg' + arc, response='eprg' + twilight +
+            wavtraname='eprg' + arc, response='eprg' + twilight +
             '_response.fits', fl_vardq=vardq, fl_fulldq='yes',
             fl_fixgaps='yes')
 
@@ -180,7 +180,7 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, twilight_flat, sciimg,
         pipe.skipwarn(imagename)
     else:
         iraf.gftransform(
-            prefix + sciimg, wavtraname='erg' + arc, fl_vardq=vardq,
+            prefix + sciimg, wavtraname='eprg' + arc, fl_vardq=vardq,
             w1=wl1, w2=wl2,
         )
     
