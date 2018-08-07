@@ -287,7 +287,7 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
     #   Finding wavelength solution
     #   Note: the automatic identification is very good
     #
-    imageName = './database/id' + refix + arc + '_001'
+    imageName = './database/id' + 'eprg' + arc + '_001'
     if not os.path.isfile(imageName):
         iraf.gswavelength(
             'eprg' + arc, function='chebyshev', nsum=15, order=4,
