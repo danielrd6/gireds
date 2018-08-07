@@ -282,7 +282,7 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
             t_nsum=10, fl_novl='no', fl_fulldq=vardq, fl_gnsskysub='no',
             fl_fixnc='no', fl_fixgaps='yes', fl_vardq=vardq, grow=grow_gap,
             fl_inter='no', reference='eprg' + flat,
-            response='eprg' + twilight + '_response')
+            response='eprg' + flat + '_response')
     #
     #   Finding wavelength solution
     #   Note: the automatic identification is very good
