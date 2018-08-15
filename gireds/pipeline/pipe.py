@@ -64,7 +64,7 @@ def closest_in_time(images, target):
     tgt_mjd = fits.getheader(target, ext=1)['mjd-obs']
     mjds = np.array([fits.getheader(i, ext=1)['mjd-obs'] for i in images])
 
-    return images[abs(mjds - tgt_mjd).argsort()[1]]
+    return images[abs(mjds - tgt_mjd).argsort()[0]]
 
 
 def skipwarn(imageName):
