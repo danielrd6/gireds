@@ -5,15 +5,13 @@ import argparse
 # third party
 from astropy.convolution import convolve, Gaussian1DKernel
 from astropy.io import fits
-import matplotlib.pyplot as plt
-import numpy as np
 from numpy import ma
 from scipy.interpolate import interp1d
+import matplotlib.pyplot as plt
+import numpy as np
 
-# local
 
-
-def vertical_profile(fname, extension):
+def vertical_profile(fname, extension, column=250, width=100):
 
     with fits.open(fname) as hdu:
 
@@ -30,7 +28,9 @@ def vertical_profile(fname, extension):
             extname = extension
             data = ma.masked_invalid(hdu[extname].data)
 
-    p = data[:, 200:300].mean(axis=1)
+    x0 = int(column - width/2)
+    x1 = int(column + width/2)
+    p = ma.median(data[:, x0:x1], axis=1)
 
     return p
 
@@ -47,7 +47,10 @@ def smooth(x, y, over_sample):
     return new_x, c
 
 
-def find_peaks(x, y, threshold, minflux):
+def find_peaks(x, y, threshold, minflux=None):
+
+    if minflux is None:
+        minflux = np.percentile(y, 98.0) / 2.0
 
     m = (np.abs(np.diff(y[:-1])) < threshold)\
         & (y[:-2] > minflux)\
@@ -129,7 +132,7 @@ def main():
         '-s', '--oversample', default=30, type=int,
         help='Oversampling factor for pixel coordinates.')
     parser.add_argument(
-        '-t', '--flux-threshold', default=1.5e+4, type=float,
+        '-t', '--flux-threshold', type=float,
         help='Flux in ADU below which nothing is considered a valid aperture.')
     parser.add_argument(
         '-w', '--minsep', default=1, type=float,
