@@ -13,10 +13,22 @@ from scipy.interpolate import interp1d
 # local
 
 
-def vertical_profile(fname):
+def vertical_profile(fname, extension):
 
-    hdu = fits.open(fname)
-    data = ma.masked_invalid(hdu['sci', 4].data)
+    with fits.open(fname) as hdu:
+
+        if ',' in extension:
+            extname, extnum = extension.split(',')
+            extnum = int(extnum)
+            data = ma.masked_invalid(hdu[extname, extnum].data)
+
+        elif extension.isdigit():
+            extnum = int(extension)
+            data = ma.masked_invalid(hdu[extnum].data)
+
+        elif not extension.isdigit():
+            extname = extension
+            data = ma.masked_invalid(hdu[extname].data)
 
     p = data[:, 200:300].mean(axis=1)
 
@@ -84,13 +96,14 @@ def average_neighbours(x, y, threshold):
     return np.array(new_x), np.array(new_y)
 
 
-def plot_results(x, p, xp, yp):
+def plot_results(x, p, xp, yp, sx, sy):
 
     fig = plt.figure(1)
     fig.clf()
     ax = fig.add_subplot(111)
 
     ax.plot(x, p)
+    ax.plot(sx, sy)
     ax.scatter(xp, yp, marker='.', s=50, color='red')
 
     plt.show()
@@ -101,25 +114,29 @@ def main():
     parser = argparse.ArgumentParser(
         description='Identifies the aperture centers in a GMOS flat field.')
     parser.add_argument(
+        'flatfield', action='store', help='GPREPARED GMOS Flat field image.')
+    parser.add_argument(
         '-d', '--derivative-threshold', default=20, type=float,
         help='Minimum value of the pixel coordinate derivative that is to be'
         ' identified as a local maximum.')
     parser.add_argument(
-        'flatfield', action='store', help='GPREPARED GMOS Flat field image.')
+        '-e', '--extension', type=str,
+        help='Name of the MEF extension in which to perform the aperture'
+        ' search.')
     parser.add_argument(
-        '-f', '--flux-threshold', default=1.5e+4, type=float,
-        help='Flux in ADU below which nothing is considered a valid aperture.')
-    parser.add_argument(
-        '-w', '--minsep', default=1, type=float,
-        help='Minimum separation between adjacent apertures.')
+        '-p', '--plot', action='store_true', help='Plots the results.')
     parser.add_argument(
         '-s', '--oversample', default=30, type=int,
         help='Oversampling factor for pixel coordinates.')
     parser.add_argument(
-        '-p', '--plot', action='store_true', help='Plots the results.')
+        '-t', '--flux-threshold', default=1.5e+4, type=float,
+        help='Flux in ADU below which nothing is considered a valid aperture.')
+    parser.add_argument(
+        '-w', '--minsep', default=1, type=float,
+        help='Minimum separation between adjacent apertures.')
     args = parser.parse_args()
 
-    p = vertical_profile(args.flatfield)
+    p = vertical_profile(args.flatfield, args.extension)
     x = np.arange(p.size)
 
     nx, s = smooth(x, p, over_sample=args.oversample)
@@ -131,4 +148,4 @@ def main():
     print('{:d} apertures found.'.format(avx.size))
 
     if args.plot:
-        plot_results(x, p, avx, avy)
+        plot_results(x, p, avx, avy, nx, s)
