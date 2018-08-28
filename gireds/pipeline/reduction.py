@@ -178,7 +178,7 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
             trace='no', fl_flux='no', fl_gscrrej='no', fl_extract='no',
             fl_gsappwave='no', fl_wavtran='no', fl_novl='no',
             fl_skysub='no', recenter='no', fl_vardq=vardq,
-            fl_fulldq=vardq, mdfdir='gmos$data/')
+            fl_fulldq='yes', mdfdir='gmos$data/')
 
         # try:
         #     h = fits.open('rg' + i + '.fits')
@@ -186,10 +186,10 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
         #     del(a)
         # except KeyError:
         #     return
-        with fits.open('rg' + flat + '.fits') as h:
-            if 'DQ' not in h:
-                return
-        del(h)
+        # with fits.open('rg' + flat + '.fits') as h:
+        #     if 'DQ' not in h:
+        #         return
+        # del(h)
         # Gemfix
         iraf.gemfix('rg' + flat, out='prg' + flat, method='fit1d',
                     bitmask=1, axis=1)
