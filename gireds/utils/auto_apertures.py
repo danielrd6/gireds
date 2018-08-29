@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def vertical_profile(fname, extension, column=250, width=100):
+def vertical_profile(fname, extension, column=None, width=100):
 
     with fits.open(fname) as hdu:
 
@@ -28,8 +28,11 @@ def vertical_profile(fname, extension, column=250, width=100):
             extname = extension
             data = ma.masked_invalid(hdu[extname].data)
 
-    x0 = int(column - width/2)
-    x1 = int(column + width/2)
+    if column is None:
+        column = int(data.shape[1] / 2.0)
+
+    x0 = int(column - (width / 2))
+    x1 = int(column + (width / 2))
     p = ma.median(data[:, x0:x1], axis=1)
 
     return p
@@ -112,12 +115,50 @@ def plot_results(x, p, xp, yp, sx, sy):
     plt.show()
 
 
+def find_dead_beams(x):
+
+    d = np.median(np.diff(x))
+    gaps = np.append(np.array([0]), np.where(np.diff(x) > 3 * d)[0] + 1)
+    if gaps[-1] < 720:
+        gaps = np.append(gaps, np.array([len(x)]))
+    beams = np.ones((750))
+
+    for k, g in enumerate(gaps[:-1]):
+        start, end = g, gaps[k + 1]
+        i = j = 0
+        n = 50
+        model = x[start] + np.arange(n) * d
+
+        # Fix dead fibers at the beginning of the bundle.
+        if end != gaps[-1]:
+            while (model[-1] - x[end - 1]) > (d / 2.):
+                beams[50 * k + j] = -1
+                n -= 1
+                model = x[start] + np.arange(n) * d
+        # General fix for dead fibers anywhere in the bundle.
+        while (j < len(model)) and ((g + i) < len(x)):
+            if np.abs(x[g + i] - model[j]) > (d / 2):
+                beams[50 * k + j] = -1
+                j += 1
+            else:
+                j += 1
+                i += 1
+    # Fix dead fibers at the end.
+    if (50 * k + i) < (len(beams) - 1):
+        beams[50 * k + i:] = -1
+
+    return beams
+
+
 def main():
 
     parser = argparse.ArgumentParser(
         description='Identifies the aperture centers in a GMOS flat field.')
     parser.add_argument(
         'flatfield', action='store', help='GPREPARED GMOS Flat field image.')
+    parser.add_argument(
+        '-c', '--column', type=float,
+        help='Image column for vertical profile.')
     parser.add_argument(
         '-d', '--derivative-threshold', default=20, type=float,
         help='Minimum value of the pixel coordinate derivative that is to be'
@@ -139,7 +180,7 @@ def main():
         help='Minimum separation between adjacent apertures.')
     args = parser.parse_args()
 
-    p = vertical_profile(args.flatfield, args.extension)
+    p = vertical_profile(args.flatfield, args.extension, column=args.column)
     x = np.arange(p.size)
 
     nx, s = smooth(x, p, over_sample=args.oversample)
@@ -147,6 +188,8 @@ def main():
         nx, s, threshold=args.derivative_threshold,
         minflux=args.flux_threshold)
     avx, avy = average_neighbours(xp, yp, threshold=args.minsep)
+    beams = find_dead_beams(avx)
+    print('Dead fibers: ' + str(np.where(beams == -1)[0].tolist()))
 
     print('{:d} apertures found.'.format(avx.size))
 
