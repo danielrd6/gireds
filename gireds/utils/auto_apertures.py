@@ -122,18 +122,44 @@ def read_apertures(fname):
         a = [i for i in f.readlines() if (('begin' in i) or ('title' in i))]
 
     t = table.Table([
-        table.Column(name='column', dtype=float),
+        table.Column(name='line', dtype=float),
         table.Column(name='num', dtype=int),
-        table.Column(name='beam_title', dtype='S10'),
+        table.Column(name='bundle', dtype='S10'),
+        table.Column(name='fiber', dtype=int),
     ])
 
     for i in range(0, len(a), 2):
         t.add_row([
             a[i].split()[-1].strip(),
             a[i].split()[-3].strip(),
-            a[i + 1].split()[-1].strip()])
+            a[i + 1].split()[-1].split('_')[0].strip(),
+            a[i + 1].split()[-1].split('_')[1].strip()])
 
     return t
+
+
+def fix_dead_beams(apertures):
+
+    d = np.diff(apertures['line'])
+    md = np.median(d)
+    
+    # Remove duplicates
+    while np.any(d < (md / 2)):
+
+        dup = np.where(d < (md / 2))[0][0]
+
+        apertures['bundle'][dup + 1:] = apertures['bundle'][dup:-1]
+        apertures['fiber'][dup + 1:] = apertures['fiber'][dup:-1]
+
+        apertures.remove_row(dup)
+
+        d = np.diff(apertures['line'])
+        md = np.median(d)
+
+    gaps = np.where(d > 3 * md)[0]
+    # for i, gap in enumerate(gaps):
+
+    return apertures          
 
 
 def find_dead_beams(x):
