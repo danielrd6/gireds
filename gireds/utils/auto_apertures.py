@@ -3,6 +3,7 @@
 import argparse
 
 # third party
+from astropy import table
 from astropy.convolution import convolve, Gaussian1DKernel
 from astropy.io import fits
 from numpy import ma
@@ -115,37 +116,85 @@ def plot_results(x, p, xp, yp, sx, sy):
     plt.show()
 
 
-def find_dead_beams(x):
+def read_apertures(fname):
 
-    d = np.median(np.diff(x))
-    gaps = np.append(np.array([0]), np.where(np.diff(x) > 3 * d)[0] + 1)
-    if gaps[-1] < 720:
-        gaps = np.append(gaps, np.array([len(x)]))
+    with open(fname, 'r') as f:
+        a = [i for i in f.readlines() if (('begin' in i) or ('title' in i))]
+
+    t = table.Table([
+        table.Column(name='column', dtype=float),
+        table.Column(name='num', dtype=int),
+        table.Column(name='beam_title', dtype='S10'),
+    ])
+
+    for i in range(0, len(a), 2):
+        t.add_row([
+            a[i].split()[-1].strip(),
+            a[i].split()[-3].strip(),
+            a[i + 1].split()[-1].strip()])
+
+    return t
+
+
+def find_dead_beams(x):
+    
+    # First derivative of aperture position
+    d = np.diff(x)
+    # Typical value for distance between apertures
+    md = np.median(d)
+    # Typical value for distance between fiber bundles
+    mg = d[d > 3. * md].mean()
+    # Gap limit
+    gap_limit = mg + (3 * d[d > 3. * md].std())
+
+    # Array of gaps indexes, including first and last.
+    gaps = np.concatenate(([0], np.where(d > 3 * md)[0] + 1, [len(x)]))
+
     beams = np.ones((750))
 
+    gap_cases = {
+        'first or last bundle': np.array([False, False]),
+        'missing left fiber': np.array([True, False]),
+        'missing right fiber': np.array([False, True]),
+    }
+
     for k, g in enumerate(gaps[:-1]):
+
         start, end = g, gaps[k + 1]
         i = j = 0
-        n = 50
-        model = x[start] + np.arange(n) * d
+        model = x[start] + np.arange(50) * md
 
-        # Fix dead fibers at the beginning of the bundle.
-        if end != gaps[-1]:
-            while (model[-1] - x[end - 1]) > (d / 2.):
-                beams[50 * k + j] = -1
-                n -= 1
-                model = x[start] + np.arange(n) * d
+        gap_distances = np.array(
+            [d[(gaps[m]-1).clip(min=0, max=len(d) - 1)] for m in [k, k + 1]])
+
+        while (model[-1] - x[end - 1]) > (md / 2.):
+
+            gap_conform = (gap_distances > gap_limit)
+
+            import pdb; pdb.set_trace()
+            if np.all(gap_conform == gap_cases['first or last bundle']):
+                if k == 0:
+                    beams[(50 * k) + j] = -1
+                    j += 1
+                if k == 14:
+                    beams[(50 * k) + (49 - j)] = -1
+            elif np.all(gap_conform == gap_cases['missing left fiber']):
+                beams[(50 * k) + j] = -1
+                j += 1
+            # NOTE: This next test will not work for missing left
+            # fibers in the bundle to the right.
+            elif np.all(gap_conform == gap_cases['missing right fiber']):
+                beams[(50 * k) + (49 - j)] = -1
+            model = x[start] + np.arange(50 - j) * md
+
         # General fix for dead fibers anywhere in the bundle.
         while (j < len(model)) and ((g + i) < len(x)):
-            if np.abs(x[g + i] - model[j]) > (d / 2):
+            if np.abs(x[g + i] - model[j]) > (md / 2):
                 beams[50 * k + j] = -1
                 j += 1
             else:
                 j += 1
                 i += 1
-    # Fix dead fibers at the end.
-    if (50 * k + i) < (len(beams) - 1):
-        beams[50 * k + i:] = -1
 
     return beams
 
