@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # stdlib
 import argparse
+import pkg_resources
 
 # third party
 from astropy import table
@@ -203,7 +204,39 @@ def fix_dead_beams(apertures):
     if bundle_names[-2] in apertures['bundle'][gaps[-2]:]:
         raise RuntimeError('Untested situation!')
 
-    return          
+    return 
+
+
+def fix_mdf(flat):
+
+    with fits.open(flat) as hdu:
+        mdf = table.Table(hdu['mdf'].data)
+        two_slits = hdu[0].header['MASKNAME'] == 'IFU-2'
+
+    if two_slits:
+        t0 = read_apertures('ap' + flat.replace('.fits', '') + '_1')
+        fix_dead_beams(t0)
+        t1 = read_apertures('ap' + flat.replace('.fits', '') + '_2')
+        fix_dead_beams(t1)
+        apertures = table.vstack([t0, t1])
+    else:
+        apertures = read_apertures('ap' + flat.replace('.fits', '') + '_1')
+        fix_dead_beams(apertures)
+
+    found_fibers = table.Column([
+        '{:5s}'.format('{:s}_{:d}'.format(i['bundle'], i['fiber']))
+        for i in apertures], dtype='S5', name='found_fibers')
+    x = np.isin(mdf['BLOCK'], found_fibers)
+
+    mdf['BEAM'][~x] = -1
+
+    distro = pkg_resources.get_distribution('gireds')
+    with fits.open(flat) as hdu:
+        hdu['mdf'].data = mdf
+        hdu['mdf'].header['APFIXVER'] = distro.version
+        hdu.writeto(hdu.filename(), overwrite=True)
+
+    return
 
 
 def find_dead_beams(x):
