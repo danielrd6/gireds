@@ -137,6 +137,13 @@ def read_apertures(fname):
 
     return t
 
+def fix_missing(apertures, idx):
+
+    for i in ['bundle', 'fiber']:
+        apertures[i][idx:-1] = apertures[i][(idx + 1):]
+    apertures.remove_row(-1)
+
+    return
 
 def fix_dead_beams(apertures):
 
@@ -150,9 +157,8 @@ def fix_dead_beams(apertures):
 
         dup = np.where(d < (md / 2))[0][0]
 
-        apertures['bundle'][dup + 1:] = apertures['bundle'][dup:-1]
-        apertures['fiber'][dup + 1:] = apertures['fiber'][dup:-1]
-
+        for col in ['bundle', 'fiber']:
+            apertures[col][dup + 1:] = apertures[col][dup:-1]
         apertures.remove_row(dup)
 
         d = np.diff(apertures['line'])
@@ -168,27 +174,36 @@ def fix_dead_beams(apertures):
             apertures['bundle'][gaps[i]:gaps[i + 1]], return_counts=True)
         bundle_names += [bundles[counts.argsort()].tolist()[-1]]
 
-    print(bundle_names)
-
-    for i, bundle in enumerate(bundle_names): 
+    # First bundle
+    if bundle_names[1] in apertures['bundle'][:gaps[1]]:
+        raise RuntimeError('Untested situation!')
+    # Bundles in the middle
+    i = 1
+    while i < (len(bundle_names) - 1): 
         b = apertures['bundle'][gaps[i]:gaps[i + 1]]
-        if i > 0:
-            if bundle_names[i - 1] in b:
-                nd = np.diff(
-                    apertures['line'][
-                        (gaps[i] - 1).clip(min=0):(gaps[i + 1] + 1)])
-                if nd[0] > (mg + 3 * sg):
-                    print('missing first')
-                elif nd[-1] > (mg + 3 * sg):
-                    print('missing last')
-                else:
-                    print('missing one in the middle')
-            elif bundle_names[i + 1] in b:
-                print(i, 'last had too much')
+        if bundle_names[i - 1] in b:
+            i -= 1
+            nd = np.diff(
+                apertures['line'][
+                    (gaps[i] - 1).clip(min=0):(gaps[i + 1] + 1)])
+            if nd[0] > (mg + 3 * sg):
+                raise RuntimeError('Untested situation!')
+            elif nd[-1] > (mg + 3 * sg):
+                raise RuntimeError('Untested situation!')
             else:
-                print(i, 'ok')
+                print('missing one in the middle')
+                nd = nd[1:-1]
+                for k in np.where(nd > (md * 1.5))[0]:
+                    fix_missing(apertures, gaps[i] + k + 1)
+        elif bundle_names[i + 1] in b:
+            raise RuntimeError('Untested situation!')
+        else:
+            print(i, 'ok')
+            i += 1
+    if bundle_names[-2] in apertures['bundle'][gaps[-2]:]:
+        raise RuntimeError('Untested situation!')
 
-    return apertures          
+    return          
 
 
 def find_dead_beams(x):
