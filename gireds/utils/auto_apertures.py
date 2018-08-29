@@ -142,6 +142,8 @@ def fix_dead_beams(apertures):
 
     d = np.diff(apertures['line'])
     md = np.median(d)
+    mg = d[d > 3 * md].mean()
+    sg = d[d > 3 * md].std()
     
     # Remove duplicates
     while np.any(d < (md / 2)):
@@ -155,9 +157,36 @@ def fix_dead_beams(apertures):
 
         d = np.diff(apertures['line'])
         md = np.median(d)
+        
+    d = np.diff(apertures['line'])
+    md = np.median(d)
 
-    gaps = np.where(d > 3 * md)[0]
-    # for i, gap in enumerate(gaps):
+    gaps = np.concatenate(([0], np.where(d > 3 * md)[0] + 1, [750]))
+    bundle_names = []
+    for i, j in enumerate(gaps[:-1]):
+        bundles, counts = np.unique(
+            apertures['bundle'][gaps[i]:gaps[i + 1]], return_counts=True)
+        bundle_names += [bundles[counts.argsort()].tolist()[-1]]
+
+    print(bundle_names)
+
+    for i, bundle in enumerate(bundle_names): 
+        b = apertures['bundle'][gaps[i]:gaps[i + 1]]
+        if i > 0:
+            if bundle_names[i - 1] in b:
+                nd = np.diff(
+                    apertures['line'][
+                        (gaps[i] - 1).clip(min=0):(gaps[i + 1] + 1)])
+                if nd[0] > (mg + 3 * sg):
+                    print('missing first')
+                elif nd[-1] > (mg + 3 * sg):
+                    print('missing last')
+                else:
+                    print('missing one in the middle')
+            elif bundle_names[i + 1] in b:
+                print(i, 'last had too much')
+            else:
+                print(i, 'ok')
 
     return apertures          
 
