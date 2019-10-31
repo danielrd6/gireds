@@ -1,20 +1,16 @@
-#!/usr/bin/env python
-# stdlib
 import argparse
-import pkg_resources
 
-# third party
+import matplotlib.pyplot as plt
+import numpy as np
+import pkg_resources
 from astropy import table
 from astropy.convolution import convolve, Gaussian1DKernel
 from astropy.io import fits
 from numpy import ma
 from scipy.interpolate import interp1d
-import matplotlib.pyplot as plt
-import numpy as np
 
 
 def vertical_profile(fname, extension, column=None, width=100):
-
     with fits.open(fname) as hdu:
 
         if ',' in extension:
@@ -41,7 +37,6 @@ def vertical_profile(fname, extension, column=None, width=100):
 
 
 def smooth(x, y, over_sample):
-
     f = interp1d(x, y)
     new_x = np.linspace(x[0], x[-1], x.size * over_sample)
     new_y = f(new_x)
@@ -53,19 +48,17 @@ def smooth(x, y, over_sample):
 
 
 def find_peaks(x, y, threshold, minflux=None):
-
     if minflux is None:
-        minflux = np.percentile(y, 98.0) / 2.0
+        minflux = np.percentile(y, 98) / 2.0
 
-    m = (np.abs(np.diff(y[:-1])) < threshold)\
-        & (y[:-2] > minflux)\
+    m = (np.abs(np.diff(y[:-1])) < threshold) \
+        & (y[:-2] > minflux) \
         & (np.diff(y, 2) < 0)
 
     return x[:-2][m], y[:-2][m]
 
 
 def average_neighbours(x, y, threshold):
-
     new_x = []
     new_y = []
 
@@ -105,7 +98,6 @@ def average_neighbours(x, y, threshold):
 
 
 def plot_results(x, p, xp, yp, sx, sy):
-
     fig = plt.figure(1)
     fig.clf()
     ax = fig.add_subplot(111)
@@ -118,7 +110,6 @@ def plot_results(x, p, xp, yp, sx, sy):
 
 
 def read_apertures(fname):
-
     with open(fname, 'r') as f:
         a = [i for i in f.readlines() if (('begin' in i) or ('title' in i))]
 
@@ -138,21 +129,21 @@ def read_apertures(fname):
 
     return t
 
-def fix_missing(apertures, idx):
 
+def fix_missing(apertures, idx):
     for i in ['bundle', 'fiber']:
         apertures[i][idx:-1] = apertures[i][(idx + 1):]
     apertures.remove_row(-1)
 
     return
 
-def fix_dead_beams(apertures):
 
+def fix_dead_beams(apertures):
     d = np.diff(apertures['line'])
     md = np.median(d)
     mg = d[d > 3 * md].mean()
     sg = d[d > 3 * md].std()
-    
+
     # Remove duplicates
     while np.any(d < (md / 2)):
 
@@ -164,7 +155,7 @@ def fix_dead_beams(apertures):
 
         d = np.diff(apertures['line'])
         md = np.median(d)
-        
+
     d = np.diff(apertures['line'])
     md = np.median(d)
 
@@ -180,13 +171,11 @@ def fix_dead_beams(apertures):
         raise RuntimeError('Untested situation!')
     # Bundles in the middle
     i = 1
-    while i < (len(bundle_names) - 1): 
+    while i < (len(bundle_names) - 1):
         b = apertures['bundle'][gaps[i]:gaps[i + 1]]
         if bundle_names[i - 1] in b:
             i -= 1
-            nd = np.diff(
-                apertures['line'][
-                    (gaps[i] - 1).clip(min=0):(gaps[i + 1] + 1)])
+            nd = np.diff(apertures['line'][(gaps[i] - 1).clip(min=0):(gaps[i + 1] + 1)])
             if nd[0] > (mg + 3 * sg):
                 raise RuntimeError('Untested situation!')
             elif nd[-1] > (mg + 3 * sg):
@@ -204,11 +193,10 @@ def fix_dead_beams(apertures):
     if bundle_names[-2] in apertures['bundle'][gaps[-2]:]:
         raise RuntimeError('Untested situation!')
 
-    return 
+    return
 
 
 def fix_mdf(flat):
-
     with fits.open(flat) as hdu:
         mdf = table.Table(hdu['mdf'].data)
         two_slits = hdu[0].header['MASKNAME'] == 'IFU-2'
@@ -240,7 +228,6 @@ def fix_mdf(flat):
 
 
 def find_dead_beams(x):
-    
     # First derivative of aperture position
     d = np.diff(x)
     # Typical value for distance between apertures
@@ -268,13 +255,13 @@ def find_dead_beams(x):
         model = x[start] + np.arange(50) * md
 
         gap_distances = np.array(
-            [d[(gaps[m]-1).clip(min=0, max=len(d) - 1)] for m in [k, k + 1]])
+            [d[(gaps[m] - 1).clip(min=0, max=len(d) - 1)] for m in [k, k + 1]])
 
+        # TODO: Fix this! This part of the code is falling into an inifinite loop.
         while (model[-1] - x[end - 1]) > (md / 2.):
 
             gap_conform = (gap_distances > gap_limit)
 
-            import pdb; pdb.set_trace()
             if np.all(gap_conform == gap_cases['first or last bundle']):
                 if k == 0:
                     beams[(50 * k) + j] = -1
@@ -303,7 +290,6 @@ def find_dead_beams(x):
 
 
 def main():
-
     parser = argparse.ArgumentParser(
         description='Identifies the aperture centers in a GMOS flat field.')
     parser.add_argument(
@@ -314,11 +300,11 @@ def main():
     parser.add_argument(
         '-d', '--derivative-threshold', default=20, type=float,
         help='Minimum value of the pixel coordinate derivative that is to be'
-        ' identified as a local maximum.')
+             ' identified as a local maximum.')
     parser.add_argument(
         '-e', '--extension', type=str,
         help='Name of the MEF extension in which to perform the aperture'
-        ' search.')
+             ' search.')
     parser.add_argument(
         '-p', '--plot', action='store_true', help='Plots the results.')
     parser.add_argument(
