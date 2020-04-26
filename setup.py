@@ -25,7 +25,7 @@ setup(name='gireds',
       author_email='druscheld@gmail.com',
       url='https://git.cta.if.ufrgs.br/ruschel/gireds',
       package_data=packdata,
-      options=dict(egg_info=dict(tag_build='dev_' + git_head_rev)),
+      options=dict(egg_info=dict(tag_build=str('dev_') + str(git_head_rev))),
       platform='Linux',
       license='GPLv3',
       description='Program to reduce GMOS IFU data.')
