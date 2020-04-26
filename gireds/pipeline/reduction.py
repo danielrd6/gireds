@@ -10,22 +10,17 @@
 
 # Table of images
 
-# STDLIB
 import os
-import warnings
 import random
+import warnings
 
-# THIRD PARTY
-from astropy.io import fits
-from pyraf import iraf
 import numpy as np
 import pkg_resources
-
-# LOCAL
+from astropy.io import fits
+from pyraf import iraf
 
 
 def rename_log(logFileName):
-
     iraf.gloginit(
         logFileName, 'bogus', 'bogus', 'bogus', fl_append='yes')
 
@@ -38,7 +33,6 @@ def rename_log(logFileName):
 
 
 def skipwarn(imageName):
-
     warnText = 'Skipping alread present image {:s}.'.format(imageName)
     warnings.warn(warnText)
     iraf.printlog('GIREDS: ' + warnText, iraf.gmos.logfile, 'yes')
@@ -78,17 +72,14 @@ def wl_lims(image, trim_fraction=0.02):
         h = hdu[2].header
         crval, crpix, dwl = [h[i] for i in ['CRVAL1', 'CRPIX1', 'CD1_1']]
         npix = np.shape(hdu[2].data)[1]
-
         wl = crval + (np.arange(1, npix + 1, dtype='float32') - crpix) * dwl
-
-    if nimages == 2:
+    elif nimages == 2:
         h = [hdu[2].header, hdu[3].header]
-        crval, crpix, dwl = [(h[0][i], h[1][i]) for i in ['CRVAL1', 'CRPIX1',
-                                                          'CD1_1']]
+        crval, crpix, dwl = [(h[0][i], h[1][i]) for i in ['CRVAL1', 'CRPIX1', 'CD1_1']]
         npix = (np.shape(hdu[2].data)[1], np.shape(hdu[3].data)[1])
-        wl = np.append(*[crval[i] + (np.arange(1, npix[i] + 1,
-                                     dtype='float32') - crpix[i]) * dwl[i]
-                         for i in range(2)])
+        wl = np.append(*[crval[i] + (np.arange(1, npix[i] + 1, dtype='float32') - crpix[i]) * dwl[i] for i in range(2)])
+    else:
+        raise RuntimeError('nimages should be either 0 or 1.')
 
     wl.sort()
 
@@ -167,7 +158,7 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
             if os.path.isfile(imageName):
                 iraf.printlog(
                     'GIREDS: WARNING: Removing file {:s}'
-                    .format(imageName), iraf.gmos.logfile, 'yes')
+                        .format(imageName), iraf.gmos.logfile, 'yes')
                 iraf.delete(imageName)
 
         mdffile = 'mdf' + flat + '.fits'
@@ -188,12 +179,11 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
         #   Extract spectra
         #
         rename_log(iraf.gmos.logfile)
-        iraf.gfextract(
-            'prg' + flat, exslits='*', trace='yes', recenter='yes',
-            order=4, t_nsum=10, fl_novl='no', fl_fulldq=vardq,
-            fl_gnsskysub='no', fl_fixnc='no', fl_fixgaps='yes',
-            fl_vardq='yes', grow=grow_gap, fl_inter='no')
+        iraf.gfextract('prg' + flat, exslits='*', trace='yes', recenter='yes', order=4, t_nsum=10, fl_novl='no',
+                       fl_fulldq=vardq, fl_gnsskysub='no', fl_fixnc='no', fl_fixgaps='yes', fl_vardq='yes',
+                       grow=grow_gap, fl_inter='no')
         # Apertures
+        raise RuntimeError('pediu pra parar parou')
         apertures(flat, vardq, mdffile, overscan, instrument, slits)
 
     #
@@ -429,7 +419,7 @@ def apertures(flat, vardq, mdffile, overscan, instrument, slits):
             info['No_next'][:-1] = aperg_info[1:, 0]
             # Separates apertures from inside of blocks and from the gaps.
             maskIN = info['dCenter'][
-                :-1] < 2.8 * np.median(info['dCenter'][:-1])
+                     :-1] < 2.8 * np.median(info['dCenter'][:-1])
             info['where'][:-1] = ['inside' if m else 'gap' for m in maskIN]
 
             # Median values
@@ -457,7 +447,7 @@ def apertures(flat, vardq, mdffile, overscan, instrument, slits):
             with open(excep_ap, 'r') as f:
                 lines = f.readlines()
             fix_No = [int(i.split()[1]) for i in lines if flat in i]
-            if (mdf['slits'] == 'red' or mdf['slits'] == 'both') and\
+            if (mdf['slits'] == 'red' or mdf['slits'] == 'both') and \
                     slitNo == 1:
                 if mdf['instr'].lower() == 'gmos-s':
                     fix_No = np.append(
@@ -491,7 +481,7 @@ def apertures(flat, vardq, mdffile, overscan, instrument, slits):
             # Tests
             isLeftShift = len(leftShift)
             isRightShift = len(rightShift)
-            isNoneShift = not(isLeftShift or isRightShift)
+            isNoneShift = not (isLeftShift or isRightShift)
             isBothShift = isLeftShift and isRightShift
             isGood = (not len(infoError)) and isNoneShift
             # Unnusual values in gaps
@@ -499,7 +489,7 @@ def apertures(flat, vardq, mdffile, overscan, instrument, slits):
                     isNoneShift:
                 isGood = True
             # Stop iteration if iteration limit was achieved.
-            if (not(isGood) and nIter == 7):
+            if (not (isGood) and nIter == 7):
                 resultError = True
 
             # Is first aperture identifying the "bump"
