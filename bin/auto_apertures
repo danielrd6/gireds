@@ -1,8 +1,20 @@
 #!/usr/bin/env python
+import argparse
 
+from gireds.utils import auto_apertures
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Identifies the aperture centers in a GMOS flat field.')
+    parser.add_argument('flatfield', action='store', type=str, help='GPREPARED GMOS Flat field image.')
+    parser.add_argument('-c', '--column', type=float, help='Image column for vertical profile.')
+    parser.add_argument('-e', '--extension', type=str,
+                        help='Name of the MEF extension in which to perform the aperture search.')
+    parser.add_argument('-p', '--plot', action='store_true', help='Plots the results.')
+    parser.add_argument('-s', '--oversample', default=10, type=int, help='Oversampling factor for pixel coordinates.')
+    parser.add_argument('-t', '--flux-threshold', default=30, type=float,
+                        help='Percentile of the flux to be considered as mininum for peak finding.')
+    parser.add_argument('-w', '--minsep', default=1, type=float, help='Minimum separation between adjacent apertures.')
+    args = parser.parse_args()
 
-    from gireds.utils import auto_apertures
-
-    auto_apertures.main()
+    auto_apertures.main(flat_field=args.flatfield, column=args.column, extension=args.extension, plot=args.plot,
+                        over_sample=args.oversample, flux_threshold=args.flux_threshold, min_sep=args.minsep)

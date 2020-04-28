@@ -1,4 +1,4 @@
-import argparse
+import os
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -7,10 +7,11 @@ from astropy import table
 from astropy.convolution import convolve, Gaussian1DKernel
 from astropy.io import fits
 from numpy import ma
+from scipy import signal
 from scipy.interpolate import interp1d
 
 
-def vertical_profile(fname, extension, column=None, width=100):
+def read_image(fname, extension):
     with fits.open(fname) as hdu:
 
         if ',' in extension:
@@ -26,6 +27,10 @@ def vertical_profile(fname, extension, column=None, width=100):
             extname = extension
             data = ma.masked_invalid(hdu[extname].data)
 
+        return data
+
+
+def vertical_profile(data, column=None, width=10):
     if column is None:
         column = int(data.shape[1] / 2.0)
 
@@ -51,9 +56,7 @@ def find_peaks(x, y, threshold, minflux=None):
     if minflux is None:
         minflux = np.percentile(y, 98) / 2.0
 
-    m = (np.abs(np.diff(y[:-1])) < threshold) \
-        & (y[:-2] > minflux) \
-        & (np.diff(y, 2) < 0)
+    m = (np.abs(np.diff(y[:-1])) < threshold) & (y[:-2] > minflux) & (np.diff(y, 2) < 0)
 
     return x[:-2][m], y[:-2][m]
 
@@ -97,13 +100,12 @@ def average_neighbours(x, y, threshold):
     return np.array(new_x), np.array(new_y)
 
 
-def plot_results(x, p, xp, yp, sx, sy):
+def plot_results(x, p, xp, yp):
     fig = plt.figure(1)
     fig.clf()
     ax = fig.add_subplot(111)
 
     ax.plot(x, p)
-    ax.plot(sx, sy)
     ax.scatter(xp, yp, marker='.', s=50, color='red')
 
     plt.show()
@@ -162,8 +164,7 @@ def fix_dead_beams(apertures):
     gaps = np.concatenate(([0], np.where(d > 3 * md)[0] + 1, [750]))
     bundle_names = []
     for i, j in enumerate(gaps[:-1]):
-        bundles, counts = np.unique(
-            apertures['bundle'][gaps[i]:gaps[i + 1]], return_counts=True)
+        bundles, counts = np.unique(apertures['bundle'][gaps[i]:gaps[i + 1]], return_counts=True)
         bundle_names += [bundles[counts.argsort()].tolist()[-1]]
 
     # First bundle
@@ -199,21 +200,17 @@ def fix_dead_beams(apertures):
 def fix_mdf(flat):
     with fits.open(flat) as hdu:
         mdf = table.Table(hdu['mdf'].data)
-        two_slits = hdu[0].header['MASKNAME'] == 'IFU-2'
+        n_slits = 2 if (hdu[0].header['MASKNAME'] == 'IFU-2') else 1
 
-    if two_slits:
-        t0 = read_apertures('ap' + flat.replace('.fits', '') + '_1')
-        fix_dead_beams(t0)
-        t1 = read_apertures('ap' + flat.replace('.fits', '') + '_2')
-        fix_dead_beams(t1)
-        apertures = table.vstack([t0, t1])
-    else:
-        apertures = read_apertures('ap' + flat.replace('.fits', '') + '_1')
-        fix_dead_beams(apertures)
+    directory = os.path.dirname(flat) + '/database/'
+    file_name = os.path.basename(flat)
+    for i in range(n_slits):
+        suffix = '_{:d}'.format(i + 1)
+        apertures = read_apertures(directory + 'ap' + file_name.replace('.fits', '') + suffix)
+        beams = fix_dead_beams(apertures)
 
-    found_fibers = table.Column([
-        '{:5s}'.format('{:s}_{:d}'.format(i['bundle'], i['fiber']))
-        for i in apertures], dtype='S5', name='found_fibers')
+    found_fibers = table.Column(['{:5s}'.format('{:s}_{:d}'.format(i['bundle'], i['fiber'])) for i in apertures],
+                                dtype='S5', name='found_fibers')
     x = np.isin(mdf['BLOCK'], found_fibers)
 
     mdf['BEAM'][~x] = -1
@@ -233,14 +230,14 @@ def find_dead_beams(x):
     # Typical value for distance between apertures
     md = np.median(d)
     # Typical value for distance between fiber bundles
-    mg = d[d > 3. * md].mean()
-    # Gap limit
-    gap_limit = mg + (3 * d[d > 3. * md].std())
+    mg = np.median(d[d > (3. * md)])
+    # Gap limit, gaps with distances above this value are considered faulty.
+    gap_limit = mg + (2 * d[d > (3. * md)].std())
 
     # Array of gaps indexes, including first and last.
-    gaps = np.concatenate(([0], np.where(d > 3 * md)[0] + 1, [len(x)]))
+    gaps = np.concatenate(([0], np.where(d > (3 * md))[0] + 1, [len(x)]))
 
-    beams = np.ones((750))
+    beams = np.ones(750)
 
     gap_cases = {
         'first or last bundle': np.array([False, False]),
@@ -248,17 +245,19 @@ def find_dead_beams(x):
         'missing right fiber': np.array([False, True]),
     }
 
-    for k, g in enumerate(gaps[:-1]):
+    for k, start in enumerate(gaps[:-1]):
 
-        start, end = g, gaps[k + 1]
+        end = gaps[k + 1]
         i = j = 0
         model = x[start] + np.arange(50) * md
 
-        gap_distances = np.array(
-            [d[(gaps[m] - 1).clip(min=0, max=len(d) - 1)] for m in [k, k + 1]])
+        gap_distances = np.array([d[(gaps[_] - 1).clip(min=0, max=len(d) - 1)] for _ in [k, k + 1]])
 
-        # TODO: Fix this! This part of the code is falling into an inifinite loop.
+        iteration = 0
+        max_iterations = 1000
         while (model[-1] - x[end - 1]) > (md / 2.):
+            assert iteration < max_iterations, 'Iteration limit exceeded! No solution was found!'
+            iteration += 1
 
             gap_conform = (gap_distances > gap_limit)
 
@@ -274,62 +273,92 @@ def find_dead_beams(x):
             # NOTE: This next test will not work for missing left
             # fibers in the bundle to the right.
             elif np.all(gap_conform == gap_cases['missing right fiber']):
-                beams[(50 * k) + (49 - j)] = -1
-            model = x[start] + np.arange(50 - j) * md
+                beams[(50 * k) + (beams[start:end] == 1).sum()] = -1
+            model = x[start] + np.arange(50 - (beams[start:end] == 1).sum()) * md
 
         # General fix for dead fibers anywhere in the bundle.
-        while (j < len(model)) and ((g + i) < len(x)):
-            if np.abs(x[g + i] - model[j]) > (md / 2):
+        while (j < len(model)) and ((start + i) < len(x)):
+            if np.abs(x[start + i] - model[j]) > (md / 2):
                 beams[50 * k + j] = -1
                 j += 1
             else:
                 j += 1
                 i += 1
 
+    # Now we take out the last fiber, according to how many dead
+    # fibers we have found so far.
+
+    beams[700 + len(x[start:]) - 1:] = -1
     return beams
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description='Identifies the aperture centers in a GMOS flat field.')
-    parser.add_argument(
-        'flatfield', action='store', help='GPREPARED GMOS Flat field image.')
-    parser.add_argument(
-        '-c', '--column', type=float,
-        help='Image column for vertical profile.')
-    parser.add_argument(
-        '-d', '--derivative-threshold', default=20, type=float,
-        help='Minimum value of the pixel coordinate derivative that is to be'
-             ' identified as a local maximum.')
-    parser.add_argument(
-        '-e', '--extension', type=str,
-        help='Name of the MEF extension in which to perform the aperture'
-             ' search.')
-    parser.add_argument(
-        '-p', '--plot', action='store_true', help='Plots the results.')
-    parser.add_argument(
-        '-s', '--oversample', default=30, type=int,
-        help='Oversampling factor for pixel coordinates.')
-    parser.add_argument(
-        '-t', '--flux-threshold', type=float,
-        help='Flux in ADU below which nothing is considered a valid aperture.')
-    parser.add_argument(
-        '-w', '--minsep', default=1, type=float,
-        help='Minimum separation between adjacent apertures.')
-    args = parser.parse_args()
+class AutoApertures:
+    def __init__(self, flat_field, over_sample=10, flux_threshold=30, min_sep=2):
+        self.over_sample = over_sample
+        self.file_name = flat_field
+        self.flux_threshold = flux_threshold
+        self.min_sep = min_sep
+        with fits.open(flat_field) as hdu:
+            self.mdf = table.Table(hdu['mdf'].data)
+            self.data = [_.data for _ in hdu if _.name == 'SCI']
+            self.total_sections = len(self.data)
+            self.section_shape = self.data[0].shape
+            self.total_columns = self.total_sections * self.section_shape[1]
 
-    p = vertical_profile(args.flatfield, args.extension, column=args.column)
+        self.image = np.column_stack(self.data)
+
+        self.n_beams = len(self.mdf)
+
+        if self.n_beams == 750:
+            self.slits = 1
+            self.column = [3000]
+        elif self.n_beams == 1500:
+            self.slits = 2
+            self.column = [1700, 5000]
+        else:
+            raise RuntimeError('Could not infer the slit mask from the length of the MDF table.')
+
+        self.dead_beams = []
+
+    def fix_mdf(self):
+        for beam in self.dead_beams:
+            self.mdf[beam]['BEAM'] = -1
+        with fits.open(self.file_name, mode='update') as hdu_list:
+            table_hdu = fits.table_to_hdu(self.mdf)
+            table_hdu.name = 'MDF'
+            hdu_list['mdf'] = table_hdu
+
+    def find_peaks(self, column):
+        profile = vertical_profile(self.image, column=column)
+        x = np.arange(profile.size)
+
+        new_x, smooth_profile = smooth(x, profile, over_sample=self.over_sample)
+        peak_indices, bogus = signal.find_peaks(smooth_profile, height=np.percentile(profile, self.flux_threshold))
+        peak_coordinates = new_x[peak_indices]
+        return peak_coordinates
+
+    def get_dead_beams(self):
+        for i in range(self.slits):
+            peak_coordinates = self.find_peaks(self.column[i])
+            beams = find_dead_beams(peak_coordinates)
+            dead = np.where(beams == -1)[0].tolist()
+            self.dead_beams += [_ + (i * 750) for _ in dead]
+
+
+def main(flat_field, column, extension='sci,1', plot=False, over_sample=10, flux_threshold=30, min_sep=2):
+    data = read_image(flat_field, extension=extension)
+    p = vertical_profile(data=data, column=column)
     x = np.arange(p.size)
 
-    nx, s = smooth(x, p, over_sample=args.oversample)
-    xp, yp = find_peaks(
-        nx, s, threshold=args.derivative_threshold,
-        minflux=args.flux_threshold)
-    avx, avy = average_neighbours(xp, yp, threshold=args.minsep)
+    new_x, smooth_profile = smooth(x, p, over_sample=over_sample)
+    peak_indices, bogus = signal.find_peaks(smooth_profile, height=np.percentile(p, flux_threshold))
+    avx, avy = average_neighbours(new_x[peak_indices], smooth_profile[peak_indices], threshold=min_sep)
     beams = find_dead_beams(avx)
     print('Dead fibers: ' + str(np.where(beams == -1)[0].tolist()))
 
     print('{:d} apertures found.'.format(avx.size))
 
-    if args.plot:
-        plot_results(x, p, avx, avy, nx, s)
+    if plot:
+        plot_results(x, p, avx, avy)
+
+    return beams, (peak_indices.astype(float) / over_sample)

@@ -19,6 +19,8 @@ import pkg_resources
 from astropy.io import fits
 from pyraf import iraf
 
+from gireds.utils.auto_apertures import AutoApertures
+
 
 def rename_log(logFileName):
     iraf.gloginit(
@@ -156,35 +158,30 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
         for j in ['g', 'r', 'p']:
             imageName = j + imageName
             if os.path.isfile(imageName):
-                iraf.printlog(
-                    'GIREDS: WARNING: Removing file {:s}'
-                        .format(imageName), iraf.gmos.logfile, 'yes')
+                iraf.printlog('GIREDS: WARNING: Removing file {:s}'.format(imageName), iraf.gmos.logfile, 'yes')
                 iraf.delete(imageName)
 
         mdffile = 'mdf' + flat + '.fits'
-        iraf.gfreduce(
-            flat, slits='header', rawpath='rawdir$', fl_inter='no',
-            fl_addmdf='yes', key_mdf='MDF', mdffile='default',
-            weights='no', fl_over=overscan, fl_trim='yes', fl_bias='yes',
-            trace='no', fl_flux='no', fl_gscrrej='no', fl_extract='no',
-            fl_gsappwave='no', fl_wavtran='no', fl_novl='no',
-            fl_skysub='no', recenter='no', fl_vardq='yes',
-            fl_fulldq='yes', mdfdir='gmos$data/')
+        iraf.gfreduce(flat, slits='header', rawpath='rawdir$', fl_inter='no', fl_addmdf='yes', key_mdf='MDF',
+                      mdffile='default', weights='no', fl_over=overscan, fl_trim='yes', fl_bias='yes', trace='no',
+                      fl_flux='no', fl_gscrrej='no', fl_extract='no', fl_gsappwave='no', fl_wavtran='no', fl_novl='no',
+                      fl_skysub='no', recenter='no', fl_vardq='yes', fl_fulldq='yes', mdfdir='gmos$data/')
 
         # Gemfix
-        iraf.gemfix(
-            'rg' + flat, out='prg' + flat, method='fit1d', bitmask=1, axis=1)
+        iraf.gemfix('rg' + flat, out='prg' + flat, method='fit1d', bitmask=1, axis=1)
 
         #
         #   Extract spectra
         #
         rename_log(iraf.gmos.logfile)
+
+        ap = AutoApertures('prg' + flat + '.fits')
+        ap.get_dead_beams()
+        ap.fix_mdf()
+
         iraf.gfextract('prg' + flat, exslits='*', trace='yes', recenter='yes', order=4, t_nsum=10, fl_novl='no',
                        fl_fulldq=vardq, fl_gnsskysub='no', fl_fixnc='no', fl_fixgaps='yes', fl_vardq='yes',
                        grow=grow_gap, fl_inter='no')
-        # Apertures
-        raise RuntimeError('pediu pra parar parou')
-        apertures(flat, vardq, mdffile, overscan, instrument, slits)
 
     #
     # Twilight
