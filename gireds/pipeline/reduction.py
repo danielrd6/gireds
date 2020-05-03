@@ -93,9 +93,8 @@ def wl_lims(image, trim_fraction=0.02):
     return wl0, wl1
 
 
-def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
-                  bpm, overscan, vardq, instrument, slits, grow_gap=1,
-                  wltrim_frac=0.03):
+def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias, bpm, overscan, vardq, instrument, slits,
+                  grow_gap=1, wltrim_frac=0.03):
     """
     Reduction pipeline for basic calibration images.
 
@@ -177,7 +176,8 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
 
         ap = AutoApertures('prg' + flat + '.fits')
         ap.get_dead_beams()
-        ap.fix_mdf()
+        ap.fix_mdf(remove_last=(1, 1))
+        ap.write_mdf_file(mdffile)
 
         iraf.gfextract('prg' + flat, exslits='*', trace='yes', recenter='yes', order=4, t_nsum=10, fl_novl='no',
                        fl_fulldq=vardq, fl_gnsskysub='no', fl_fixnc='no', fl_fixgaps='yes', fl_vardq='yes',
@@ -186,43 +186,43 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
     #
     # Twilight
     #
-    mdffile = 'mdf' + flat + '.fits'
+    # mdffile = 'mdf' + flat + '.fits'
 
-    imageName = 'eprg' + twilight + '.fits'
-    if os.path.isfile(imageName):
-        skipwarn(imageName)
-    else:
-        rename_log('extract.log')
-        iraf.gfreduce(
-            twilight, slits='header', rawpath='rawdir$', fl_inter='no',
-            fl_addmdf='yes', key_mdf='MDF', mdffile=mdffile, weights='no',
-            fl_over=overscan, fl_trim='yes', fl_bias='yes', trace='yes',
-            fl_flux='no', fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
-            fl_wavtran='no', fl_novl='no', fl_skysub='no',
-            recenter='yes', fl_vardq=vardq, mdfdir='procdir$')
-        # try:
-        #     h = fits.open('rg' + i + '.fits')
-        #     a = h['DQ', 1]
-        #     del(a)
-        # except KeyError:
-        #     return
-        # with fits.open('rg' + i + '.fits') as h:
-        #     if 'DQ' not in h:
-        #         return
-        # del(h)
-        # Gemfix
-        iraf.gemfix('rg' + twilight, out='prg' + twilight, method='fixpix',
-                    bitmask=1)
+    # imageName = 'eprg' + twilight + '.fits'
+    # if os.path.isfile(imageName):
+    #     skipwarn(imageName)
+    # else:
+    #     rename_log('extract.log')
+    #     iraf.gfreduce(
+    #         twilight, slits='header', rawpath='rawdir$', fl_inter='no',
+    #         fl_addmdf='yes', key_mdf='MDF', mdffile=mdffile, weights='no',
+    #         fl_over=overscan, fl_trim='yes', fl_bias='yes', trace='yes',
+    #         fl_flux='no', fl_gscrrej='no', fl_extract='no', fl_gsappwave='no',
+    #         fl_wavtran='no', fl_novl='no', fl_skysub='no',
+    #         recenter='yes', fl_vardq=vardq, mdfdir='procdir$')
+    #     # try:
+    #     #     h = fits.open('rg' + i + '.fits')
+    #     #     a = h['DQ', 1]
+    #     #     del(a)
+    #     # except KeyError:
+    #     #     return
+    #     # with fits.open('rg' + i + '.fits') as h:
+    #     #     if 'DQ' not in h:
+    #     #         return
+    #     # del(h)
+    #     # Gemfix
+    #     iraf.gemfix('rg' + twilight, out='prg' + twilight, method='fixpix',
+    #                 bitmask=1)
 
-        rename_log(iraf.gmos.logfile)
-        iraf.gfreduce(
-            'prg' + twilight, slits='header', rawpath='./', fl_inter='no',
-            fl_addmdf='no', key_mdf='MDF', mdffile=mdffile, weights='no',
-            fl_over='no', fl_trim='no', fl_bias='no', trace='yes',
-            t_order=4, fl_flux='no', fl_gscrrej='no', fl_extract='yes',
-            fl_gsappwave='no', fl_wavtran='no', fl_novl='no', fl_skysub='no',
-            reference='eprg' + flat, recenter='yes', fl_vardq=vardq,
-            fl_fixgaps='yes', grow=grow_gap)
+    #     rename_log(iraf.gmos.logfile)
+    #     iraf.gfreduce(
+    #         'prg' + twilight, slits='header', rawpath='./', fl_inter='no',
+    #         fl_addmdf='no', key_mdf='MDF', mdffile=mdffile, weights='no',
+    #         fl_over='no', fl_trim='no', fl_bias='no', trace='yes',
+    #         t_order=4, fl_flux='no', fl_gscrrej='no', fl_extract='yes',
+    #         fl_gsappwave='no', fl_wavtran='no', fl_novl='no', fl_skysub='no',
+    #         reference='eprg' + flat, recenter='yes', fl_vardq=vardq,
+    #         fl_fixgaps='yes', grow=grow_gap)
     #
     #   Response function
     #
@@ -234,10 +234,8 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias,
     if os.path.isfile(imageName):
         skipwarn(imageName)
     else:
-        iraf.gfresponse(
-            'eprg' + flat, out='eprg' + flat + '_response',
-            skyimage='eprg' + twilight, order=95, fl_inter='no',
-            func='spline3', sample='*', verbose='no')
+        iraf.gfresponse('eprg' + flat, out='eprg' + flat + '_response', order=95, fl_inter='no', func='spline3',
+                        sample='*', verbose='no')
     #
     #   Arc reduction
     #
