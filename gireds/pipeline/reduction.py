@@ -234,8 +234,8 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias, bpm,
     if os.path.isfile(imageName):
         skipwarn(imageName)
     else:
-        iraf.gfresponse('eprg' + flat, out='eprg' + flat + '_response', order=95, fl_inter='no', func='spline3',
-                        sample='*', verbose='no')
+        iraf.gfresponse('eprg' + flat, out='eprg' + flat + '_response', order=45, fl_inter='no', func='spline3',
+                        sample='*', verbose='no', fl_fit='yes')
     #
     #   Arc reduction
     #
