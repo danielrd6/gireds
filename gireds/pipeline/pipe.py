@@ -530,7 +530,9 @@ class pipeline():
             bpm=dic['bpm'], slits=dic['slits'], instrument=dic['instrument'],
             fl_gscrrej=self.cfg.getboolean('reduction', 'fl_gscrrej'),
             wltrim_frac=self.cfg.getfloat('reduction', 'wltrim_frac'),
-            grow_gap=self.cfg.getfloat('reduction', 'grow_gap'))
+            grow_gap=self.cfg.getfloat('reduction', 'grow_gap'),
+            cube_bit_mask=self.cfg.getint('reduction', 'cube_bit_mask')
+        )
 
     def merge(self, sciobj, name, cube_prefix):
 

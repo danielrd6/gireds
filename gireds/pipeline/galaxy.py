@@ -22,7 +22,7 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, twilight_flat, sciimg,
                    starimg, bias, overscan, vardq, observatory, lacos,
                    apply_lacos, lacos_xorder, lacos_yorder, lacos_sigclip,
                    lacos_objlim, bpm, instrument, slits, fl_gscrrej,
-                   wltrim_frac, grow_gap):
+                   wltrim_frac, grow_gap, cube_bit_mask):
     """
     Reduction pipeline for standard star.
 
@@ -231,11 +231,11 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, twilight_flat, sciimg,
     else:
         iraf.gfcube(
             prefix + sciimg, outimage='d' + prefix + sciimg, ssample=.1,
-            fl_atmdisp='yes', fl_var=vardq, fl_dq=vardq, bitmask=8,
+            fl_atmdisp='yes', fl_var=vardq, fl_dq=vardq, bitmask=cube_bit_mask,
             fl_flux='yes')
         iraf.gfcube(
             prefix + sciimg, outimage='dataquality.fits', ssample=.1,
-            fl_atmdisp='yes', fl_var=vardq, fl_dq=vardq, bitmask=65535,
+            fl_atmdisp='yes', fl_var=vardq, fl_dq=vardq, bitmask=0,
             fl_flux='yes')
         iraf.imcopy(
             'dataquality.fits[DQ]', 'd' + prefix + sciimg + '[DQ, OVERWRITE]')
