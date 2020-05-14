@@ -179,9 +179,9 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias, bpm,
         ap.fix_mdf(remove_last=(1, 1))
         ap.write_mdf_file(mdffile)
 
-        iraf.gfextract('prg' + flat, exslits='*', trace='yes', recenter='yes', order=4, t_nsum=10, fl_novl='no',
-                       fl_fulldq=vardq, fl_gnsskysub='no', fl_fixnc='no', fl_fixgaps='yes', fl_vardq='yes',
-                       grow=grow_gap, fl_inter='no')
+        iraf.gfextract('prg' + flat, exslits='*', trace='yes', recenter='yes', order=9, t_nsum=50, function='chebyshev',
+                       fl_novl='no', fl_fulldq=vardq, fl_gnsskysub='no', fl_fixnc='no', fl_fixgaps='yes',
+                       fl_vardq='yes', grow=grow_gap, fl_inter='no')
 
     #
     # Twilight
