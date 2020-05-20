@@ -33,20 +33,17 @@ def smooth(x, y, over_sample):
     return new_x, c
 
 
-def plot_results(x, p, xp, yp):
-    fig = plt.figure(1)
-    fig.clf()
-    ax = fig.add_subplot(111)
-
-    ax.plot(x, p)
-    ax.scatter(xp, yp, marker='.', s=50, color='red')
-
-    plt.show()
-
-
 def read_apertures(fname):
+    a = []
+    centers = []
     with open(fname, 'r') as f:
-        a = [i for i in f.readlines() if (('begin' in i) or ('title' in i))]
+        for line in f:
+            if ('begin' in line) or ('title' in line):
+                a.append(line)
+            elif 'center' in line:
+                centers.append(float(line.split()[1]))
+
+    column = np.unique(centers)
 
     t = table.Table([
         table.Column(name='line', dtype=float),
@@ -62,7 +59,7 @@ def read_apertures(fname):
             a[i + 1].split()[-1].split('_')[0].strip(),
             a[i + 1].split()[-1].split('_')[1].strip()])
 
-    return t
+    return t, column
 
 
 def fix_missing(apertures, idx):
@@ -87,7 +84,7 @@ def peaks_to_distances(fun):
 
 
 class AutoApertures:
-    def __init__(self, flat_field, over_sample=10, flux_threshold=30, min_sep=2):
+    def __init__(self, flat_field, over_sample=10, flux_threshold=10, min_sep=2):
         self.over_sample = over_sample
         self.file_name = flat_field
         self.flux_threshold = flux_threshold
@@ -116,24 +113,30 @@ class AutoApertures:
 
         self.dead_beams = []
 
-    def _remove_last(self, last_fiber=750, n=3):
+    def remove_last(self, last_fiber=750, n=3):
         c = 0
         i = last_fiber - 1
         while c < n:
             if self.mdf[i]['BEAM'] == 1:
+                print('Setting beam {:d} to -1.'.format(i))
                 self.mdf[i]['BEAM'] = -1
                 c += 1
             i -= 1
 
-    def fix_mdf(self, remove_last=(0, 0)):
-        self.mdf['BEAM'] = np.ones(self.slits * 750)
-        for beam in self.dead_beams:
-            self.mdf[beam]['BEAM'] = -1
+    def fix_mdf(self):
+        """
+        Fix MDF table in place.
 
-        # Take a couple more out
-        self._remove_last(last_fiber=750, n=remove_last[0])
-        if self.slits == 2:
-            self._remove_last(last_fiber=1500, n=remove_last[1])
+        Returns
+        -------
+        None
+
+        Notes
+        -----
+        This function fixes the MDF table within the flat-field FITS
+        file, setting dead beams to -1. Both one slit and two slit
+        modes are supported.
+        """
 
         with fits.open(self.file_name, mode='update') as hdu_list:
             table_hdu = fits.table_to_hdu(self.mdf)
@@ -147,22 +150,55 @@ class AutoApertures:
         new.append(hdu)
         new.writeto(output_name, overwrite=True)
 
-    def find_peaks(self, column):
+    def find_peaks(self, column, full_output=False):
         profile = vertical_profile(self.image, column=column)
         x = np.arange(profile.size)
+        flux_threshold = np.percentile(profile, self.flux_threshold)
 
         new_x, smooth_profile = smooth(x, profile, over_sample=self.over_sample)
-        peak_indices, bogus = signal.find_peaks(smooth_profile, height=np.percentile(profile, self.flux_threshold))
+        peak_indices, bogus = signal.find_peaks(smooth_profile, height=flux_threshold)
         peak_coordinates = new_x[peak_indices]
-        return peak_coordinates
+        peak_height = smooth_profile[peak_indices]
+        if full_output:
+            return x, profile, peak_coordinates, peak_height, flux_threshold
+        else:
+            return peak_coordinates
 
-    def get_dead_beams(self):
+    def plot_profile(self, slit):
+        """
+        Plots the vertical profile and identified fibers.
+
+        Parameters
+        ----------
+        slit : int
+            Slit number beginning with 0.
+
+        Returns
+        -------
+        None
+        """
+        col = self.column[slit]
+        lines, profile, peak_coordinates, peak_height, flux_threshold = self.find_peaks(col, full_output=True)
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+
+        ax.plot(lines, profile)
+        ax.scatter(peak_coordinates, peak_height, color='red')
+
+        ax.axhline(flux_threshold, color='k', linestyle='dashed')
+
+        ax.set_title(
+            'Image {:s}; column {:d}, slit {:d}\n Total apertures found: {:d}'.format(self.file_name, col, slit,
+                                                                                      len(peak_coordinates)))
+
+        plt.show()
+
+    def find_dead_beams(self):
         for i in range(self.slits):
             peak_coordinates = self.find_peaks(self.column[i])
-            beams = self.find_dead_beams(peak_coordinates)
-            dead = np.where(beams == -1)[0].tolist()
+            self._find_dead_fibers(peak_coordinates, slit=i)
+            dead = np.where(self.mdf['BEAM'].data == -1)[0].tolist()
             self.dead_beams += [_ + (i * 750) for _ in dead]
-        print('Dead beams: ', self.dead_beams)
 
     @staticmethod
     def _peak_stats(peak_positions):
@@ -178,7 +214,7 @@ class AutoApertures:
         gaps = np.concatenate([[0], gaps, [len(distance) + 1]]).astype('int16')
         return gaps
 
-    def find_dead_beams(self, peak_positions):
+    def _find_dead_fibers(self, peak_positions, slit):
         original_peak_positions = copy.deepcopy(peak_positions)
         expected_fibers = 750
         expected_fibers_per_bundle = 50
@@ -228,9 +264,8 @@ class AutoApertures:
 
         for i in range(beams.size):
             if peak_positions[i] not in original_peak_positions:
-                beams[i] = -1
-
-        return beams
+                print('Setting beam {:d} to -1.'.format(i))
+                self.mdf[i + (750 * slit)]['BEAM'] = -1
 
     @staticmethod
     def _has_missing_fiber(positions):
@@ -262,8 +297,61 @@ class AutoApertures:
                 break
         return peak_positions
 
+    @staticmethod
+    def check_bundles(apertures):
+        last_bundle = apertures[0]['bundle']
+        first_of_bundle = []
+        n_apertures = len(apertures)
+
+        for row in apertures:
+            if row['bundle'] != last_bundle:
+                last_bundle = row['bundle']
+                first_of_bundle.append(row)
+
+        shift = 0
+
+        def distance_to_last(index):
+            return apertures[index]['line'] - apertures[index - 1]['line']
+
+        for row in first_of_bundle:
+            while (distance_to_last(row.index + shift) < 12.0) and ((shift + row.index) < n_apertures):
+                shift += 1
+
+        return shift
+
+    def check_iraf(self, aperture_table):
+        """
+        Checks if IRAF aperture identification was correct.
+
+        Parameters
+        ----------
+        aperture_table : str
+            Root name for the aperture table returned by gfextract,
+            e.g. 'database/apergS2011S0062'
+
+        Returns
+        -------
+
+        """
+        status = 0
+
+        for i in range(self.slits):
+            slit = i + 1
+            ap, column = read_apertures('{:s}_{:d}'.format(aperture_table, slit))
+
+            # noinspection PyTypeChecker
+            shift = self.check_bundles(ap)
+
+            if shift == 0:
+                print('Slit {:d} is correct!'.format(slit))
+            else:
+                self.remove_last(last_fiber=slit * 750, n=shift)
+                status += 1
+
+        return status
+
 
 def main(flat_field, over_sample=10, flux_threshold=30, min_sep=2):
     a = AutoApertures(flat_field, flux_threshold=flux_threshold, over_sample=over_sample, min_sep=min_sep)
-    a.get_dead_beams()
+    a.find_dead_beams()
     a.fix_mdf()

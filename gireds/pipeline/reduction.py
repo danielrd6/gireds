@@ -19,7 +19,7 @@ import pkg_resources
 from astropy.io import fits
 from pyraf import iraf
 
-from gireds.utils.auto_apertures import AutoApertures
+from gireds.utils import auto_apertures
 
 
 def rename_log(logFileName):
@@ -174,14 +174,31 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias, bpm,
         #
         rename_log(iraf.gmos.logfile)
 
-        ap = AutoApertures('prg' + flat + '.fits')
-        ap.get_dead_beams()
-        ap.fix_mdf(remove_last=(1, 1))
-        ap.write_mdf_file(mdffile)
+        ap = auto_apertures.AutoApertures('prg' + flat + '.fits')
+        ap.find_dead_beams()
+        ap.fix_mdf()
 
-        iraf.gfextract('prg' + flat, exslits='*', trace='yes', recenter='yes', order=9, t_nsum=50, function='chebyshev',
-                       fl_novl='no', fl_fulldq=vardq, fl_gnsskysub='no', fl_fixnc='no', fl_fixgaps='yes',
-                       fl_vardq='yes', grow=grow_gap, fl_inter='no')
+        extract_args = {'inimage': 'prg' + flat, 'exslits': '*', 'trace': 'yes', 'recenter': 'yes', 'order': 9,
+                        't_nsum': 50, 'function': 'chebyshev', 'fl_novl': 'no', 'fl_fulldq': vardq,
+                        'fl_gnsskysub': 'no', 'fl_fixnc': 'no', 'fl_fixgaps': 'yes', 'fl_vardq': 'yes',
+                        'grow': grow_gap, 'fl_inter': 'no', 'verbose': 'no'}
+
+        iraf.gfextract(**extract_args)
+
+        time_out = 0
+        while (ap.check_iraf('database/apeprg' + flat) != 0) and (time_out < 5):
+            ap.fix_mdf()
+
+            iraf.printlog('Aperture iteration #{:d}.'.format(time_out), iraf.gmos.logfile, 'yes')
+
+            iraf.delete('eprg' + flat + '.fits')
+            iraf.delete('database/apeprg' + flat + '*')
+
+            iraf.gfextract(**extract_args)
+
+            time_out += 1
+
+        ap.write_mdf_file(mdffile)
 
     #
     # Twilight
