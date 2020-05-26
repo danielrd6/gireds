@@ -24,6 +24,7 @@ import numpy as np
 
 # LOCAL
 from .reduction import cal_reduction, wl_lims
+from .cube import CubeBuilder
 
 
 def skipwarn(imageName):
@@ -347,10 +348,11 @@ def reduce_stdstar(
     if os.path.isfile(imageName):
         skipwarn(imageName)
     else:
-        iraf.gfcube(
-            'c' + prefix + starimg, outimage='dc' + prefix + starimg,
-            ssample=.1, fl_atmdisp='yes', fl_var=vardq, fl_dq=vardq, bitmask=8,
-            fl_flux='yes')
+        data_cube = CubeBuilder('c' + prefix + starimg + '.fits')
+        data_cube.build_cube()
+        data_cube.fit_refraction_function()
+        data_cube.fix_atmospheric_refraction()
+        data_cube.write(imageName)
 
     #
     # Test calibration
