@@ -75,7 +75,11 @@ class CubeBuilder:
         data /= mean_spectrum[:, np.newaxis, np.newaxis]
 
         total_planes = np.arange(data.shape[0])
-        d = np.array([_.sum(0) for _ in np.array_split(data, steps)])
+        d = np.array([ma.median(_, axis=0) for _ in np.array_split(data, steps)])
+        for i in range(d.shape[0]):
+            peak_height = ma.max(d[i])
+            d[i][d[i] < (peak_height / 2.0)] = 0
+
         planes = np.array([((_[-1] + _[0]) / 2) for _ in np.array_split(np.arange(data.shape[0]), steps)])
         centers = np.array([ndimage.center_of_mass(_) for _ in d])
         centers = [x0[_] - centers[:, _] for _ in range(2)]
