@@ -9,7 +9,6 @@ from matplotlib.patches import RegularPolygon
 from numpy import ma
 from scipy import ndimage
 from scipy.interpolate import griddata
-from scipy.optimize import minimize
 
 
 def get_points(mdf, sampling=0.02, cushion=0.0):
@@ -28,13 +27,20 @@ def get_points(mdf, sampling=0.02, cushion=0.0):
 
 
 class CubeBuilder:
-    def __init__(self, file_name):
+    def __init__(self, file_name, sampling=0.1):
+        self.file_name = file_name
         with fits.open(file_name) as f:
             self.data = ma.masked_invalid(f['SCI'].data)
             self.mdf = table.Table(f['MDF'].data)
+            self.variance = ma.masked_invalid(f['VAR'].data) if 'VAR' in f else None
+            self.data_quality = ma.masked_invalid(f['DQ'].data) if 'DQ' in f else None
+            self.wavelength_keys = {'crval': f['SCI'].header['crval1'], 'cd': f['SCI'].header['CD1_1']}
+
+        self.n_wavelength = self.data.shape[1]
+        self.sampling = sampling
 
         self.flux_density()
-        self.data_cube = None
+        self.atmospheric_shift = None
 
     def flux_density(self):
         """
@@ -49,20 +55,23 @@ class CubeBuilder:
         correction_factor = 1.0 / lenslet_area
 
         self.data *= correction_factor
+        if self.variance is not None:
+            self.variance *= correction_factor
 
     def get_mean_spectrum(self):
-        y, x = np.indices(self.data_cube.shape[1:])
-        y0, x0 = ndimage.center_of_mass(self.data_cube.sum(0))
+        assert len(self.data.shape) == 3, 'Data is still 2D. Run CubeBuilder.build_cube.'
+        y, x = np.indices(self.data.shape[1:])
+        y0, x0 = ndimage.center_of_mass(self.data.sum(0))
         r = np.sqrt(np.square(x - x0) + np.square(y - y0))
 
-        spectrum = self.data_cube[:, r < 10].sum(1)
+        spectrum = self.data[:, r < 10].sum(1)
         spectrum /= ma.median(spectrum)
 
         return spectrum, (y0, x0)
 
     def fit_refraction_function(self, steps=10, degree=3, plot=False, n_iterate=5, sigma_threshold=3):
         mean_spectrum, x0 = self.get_mean_spectrum()
-        data = copy.deepcopy(self.data_cube)
+        data = copy.deepcopy(self.data)
         data /= mean_spectrum[:, np.newaxis, np.newaxis]
 
         total_planes = np.arange(data.shape[0])
@@ -91,20 +100,55 @@ class CubeBuilder:
 
             plt.show()
 
-        return shift[::-1]
+        self.atmospheric_shift = {'x': shift[1], 'y': shift[0]}
+
+    def _get_sources(self):
+        source = ['data']
+        if self.variance is not None:
+            source.append('variance')
+        if self.data_quality is not None:
+            source.append('data_quality')
+        return source
+
+    @staticmethod
+    def roll_and_pad(data, shift):
+        shift = tuple([int(np.round(_)) for _ in shift])
+        d = np.roll(copy.deepcopy(data), shift=shift)
+        for i, s in enumerate(shift):
+            sli = [slice(None), slice(None)]
+            if s >= 0:
+                sli[i] = slice(0, s)
+            elif s < 0:
+                sli[i] = slice(s, None)
+            else:
+                raise RuntimeError('This shift is very strange indeed.')
+            d[tuple(sli)] = 16
+        return d
 
     def fix_atmospheric_refraction(self):
-        x_shift, y_shift = self.fit_refraction_function(steps=20, degree=3, plot=True, sigma_threshold=2, n_iterate=3)
-        data = copy.deepcopy(self.data_cube.data)
-        data[self.data_cube.mask] = 0.0
 
-        for i, j in enumerate(x_shift):
-            data[i] = ndimage.shift(data[i], (y_shift[i], x_shift[i]), mode='constant', cval=0.0)
+        assert self.atmospheric_shift is not None, \
+            'Atmospheric shift is not defined. Please run the method fit_refraction_function prior to this method.'
 
-        self.data_cube = ma.masked_invalid(data)
+        x_shift, y_shift = [self.atmospheric_shift[_] for _ in 'xy']
 
-    def build_cube(self, sampling=0.1):
-        n_wavelength = self.data.shape[1]
+        for s in self._get_sources():
+            data = copy.deepcopy(getattr(self, s))
+            data[data.mask] = 0.0
+
+            if s == 'data_quality':
+                for i, j in enumerate(x_shift):
+                    data[i] = self.roll_and_pad(data[i], (y_shift[i], x_shift[i]))
+            else:
+                for i, j in enumerate(x_shift):
+                    data[i] = ndimage.shift(data[i], (y_shift[i], x_shift[i]), mode='constant', cval=0.0)
+
+            setattr(self, s, ma.masked_invalid(data))
+
+    def build_cube(self):
+        sampling = self.sampling
+        n_wavelength = self.n_wavelength
+
         points, shape = get_points(mdf=self.mdf, sampling=sampling)
         cube = np.zeros((n_wavelength,) + shape)
 
@@ -113,22 +157,76 @@ class CubeBuilder:
         y = self.mdf['YINST'][beam_mask].data
         grid_coordinates = np.vstack([x, y]).T
 
-        print('Building cube')
-        k = 0
-        step_size = int(n_wavelength / 10)
-        for plane in range(self.data.shape[1]):
-            if plane % step_size == 0:
-                print('{:d}%'.format(k))
-                k += 10
-            values = np.array(self.data[self.mdf[beam_mask]['APID'].data - 1, plane])
-            grid = griddata(grid_coordinates, values=values, xi=points, method='linear')
-            cube[plane] = grid.reshape(shape)
-        print(' OK!')
+        for s in self._get_sources():
+            print('Building cube for {:s}.'.format(s))
+            data = getattr(self, s)
+            k = 0
+            step_size = int(n_wavelength / 10)
+            for plane in range(data.shape[1]):
+                if plane % step_size == 0:
+                    print('{:d}%'.format(k))
+                    k += 10
+                values = np.array(data[self.mdf[beam_mask]['APID'].data - 1, plane])
+                method = 'nearest' if (s == 'data_quality') else 'linear'
+                grid = griddata(grid_coordinates, values=values, xi=points, method=method)
+                cube[plane] = grid.reshape(shape)
+            print(' OK!')
 
-        self.data_cube = ma.masked_invalid(cube)
+            setattr(self, s, ma.masked_invalid(cube))
+
+    def set_wcs(self, header):
+        """
+        Adds WCS keywords for the data cube in the header.
+        Parameters
+        ----------
+        header : astropy.io.fits.Header
+            Header instance on which to write the WCS keywords.
+
+        Returns
+        -------
+
+        """
+        for i in range(1, 4):
+            header['CRPIX{:d}'.format(i)] = 1.0
+            header['CRVAL{:d}'.format(i)] = 0.0
+
+        header['CRVAL3'] = self.wavelength_keys['crval']
+        header['CD1_1'] = -self.sampling
+        header['CD2_2'] = -self.sampling
+        header['CD3_3'] = self.wavelength_keys['cd']
+
+    @staticmethod
+    def copy_header(old, new):
+        keys = ['object', 'ccdsum', 'gain', 'gainmult', 'rdnoise', 'radecsys', 'equinox', 'mjd-obs', 'wavtran',
+                'exptime', 'airmass', 'bunit', 'fluxscal']
+        for card in old.cards:
+            if card[0].lower() in keys:
+                new.append(card)
 
     def write(self, output, overwrite=False):
-        fits.writeto(output, data=self.data_cube.data, overwrite=overwrite)
+        new = fits.HDUList()
+
+        with fits.open(self.file_name) as old:
+            new.append(old['PRIMARY'])
+
+            if self.atmospheric_shift is not None:
+                new['PRIMARY'].header.append(('ATMCORR', 'polyfit', 'Atmospheric refraction correction.'))
+
+            extension_names = {'data': 'SCI', 'variance': 'VAR', 'data_quality': 'DQ'}
+
+            for key in self._get_sources():
+                name = extension_names[key]
+                data = getattr(self, key)
+                if isinstance(data, ma.MaskedArray):
+                    data = data.data
+                if name in old:
+                    new.append(fits.ImageHDU(data=data, name=name))
+                    self.set_wcs(new[name].header)
+                    self.copy_header(old[name].header, new[name].header)
+                if key == 'data':
+                    new['SCI'].header['BUNIT'] = 'erg/cm2/s/A/arcsec2'
+
+            new.writeto(output, overwrite=overwrite)
 
 
 class RawCube:
