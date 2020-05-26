@@ -12,10 +12,13 @@
 
 # Table of images
 
-from pyraf import iraf
-from reduction import cal_reduction, wl_lims
-import pipe
 import os
+
+from pyraf import iraf
+
+import pipe
+from reduction import cal_reduction, wl_lims
+from .cube import CubeBuilder
 
 
 def reduce_science(rawdir, rundir, flat, arc, twilight, twilight_flat, sciimg,
@@ -30,23 +33,19 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, twilight_flat, sciimg,
     ----------
     rawdir: string
         Directory containing raw images.
-    rundi: string
+    rundir: string
         Directory where processed files are saved.
-    caldir: string
-        Directory containing standard star calibration files.
-    starobj: string
-        Object keyword for the star image.
-    stdstar: string
-        Star name in calibration file.
-    flat: list
+    flat: string
         Names of the files containing flat field images.
-    arc: list
+    arc: string
         Arc images.
-    twilight: list
+    twilight: string
         Twilight flat images.
+    twilight_flat: string
+        Flat field for twilight image.
     starimg: string
         Name of the file containing the image to be reduced.
-    bias: list
+    bias: string
         Bias images.
     grow_gap: number
         Number of pixels by which to grow the bad pixel mask around
@@ -105,9 +104,9 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, twilight_flat, sciimg,
     #
     #   Actually reduce science
     #
-    imagename = 'rg' + sciimg + '.fits'
-    if os.path.isfile(imagename):
-        pipe.skipwarn(imagename)
+    image_name = 'rg' + sciimg + '.fits'
+    if os.path.isfile(image_name):
+        pipe.skipwarn(image_name)
     else:
         iraf.gfreduce(
             sciimg, slits='header', rawpath='rawdir$', fl_inter='no',
@@ -120,9 +119,9 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, twilight_flat, sciimg,
     prefix = 'rg'
 
     # Gemfix
-    imagename = 'p' + prefix + sciimg + '.fits'
-    if os.path.isfile(imagename):
-        pipe.skipwarn(imagename)
+    image_name = 'p' + prefix + sciimg + '.fits'
+    if os.path.isfile(image_name):
+        pipe.skipwarn(image_name)
     else:
         iraf.gemfix(
             prefix + sciimg, out='p' + prefix + sciimg, method='fit1d',
@@ -131,9 +130,9 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, twilight_flat, sciimg,
 
     # LA Cosmic - cosmic ray removal
     if apply_lacos:
-        imagename = 'l' + prefix + sciimg + '.fits'
-        if os.path.isfile(imagename):
-            pipe.skipwarn(imagename)
+        image_name = 'l' + prefix + sciimg + '.fits'
+        if os.path.isfile(image_name):
+            pipe.skipwarn(image_name)
         else:
             iraf.gemcrspec(
                 prefix + sciimg, out='l' + prefix + sciimg, sigfrac=0.5,
@@ -143,23 +142,19 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, twilight_flat, sciimg,
         prefix = 'l' + prefix
 
     if fl_gscrrej:
-        imagename = 'ex' + prefix + sciimg + '.fits'
+        image_name = 'ex' + prefix + sciimg + '.fits'
     else:
-        imagename = 'e' + prefix + sciimg + '.fits'
+        image_name = 'e' + prefix + sciimg + '.fits'
 
-    if os.path.isfile(imagename):
-        pipe.skipwarn(imagename)
+    if os.path.isfile(image_name):
+        pipe.skipwarn(image_name)
     else:
-        iraf.gfreduce(
-            prefix + sciimg, slits='header', rawpath='./', fl_inter='no',
-            fl_addmdf='no', key_mdf='MDF', mdffile=mdffile, fl_over='no',
-            fl_trim='no', fl_bias='no', trace='no', recenter='no',
-            fl_flux='no', fl_gscrrej=fl_gscrrej, fl_extract='yes',
-            fl_gsappwave='yes', fl_wavtran='no', fl_novl='no', fl_skysub='no',
-            grow=grow_gap, reference='eprg' + flat, weights='no',
-            wavtraname='eprg' + arc, response='eprg' + flat +
-            '_response.fits', fl_vardq=vardq, fl_fulldq='yes',
-            fl_fixgaps='yes')
+        iraf.gfreduce(prefix + sciimg, slits='header', rawpath='./', fl_inter='no', fl_addmdf='no', key_mdf='MDF',
+                      mdffile=mdffile, fl_over='no', fl_trim='no', fl_bias='no', trace='no', recenter='no',
+                      fl_flux='no', fl_gscrrej=fl_gscrrej, fl_extract='yes', fl_gsappwave='yes', fl_wavtran='no',
+                      fl_novl='no', fl_skysub='no', grow=grow_gap, reference='eprg' + flat, weights='no',
+                      wavtraname='eprg' + arc, response='eprg' + flat + '_response.fits', fl_vardq=vardq,
+                      fl_fulldq='yes', fl_fixgaps='yes')
 
     if fl_gscrrej:
         prefix = 'ex' + prefix
@@ -172,39 +167,39 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, twilight_flat, sciimg,
     #
     #   Apply wavelength transformation
     #
-    
+
     wl1, wl2 = wl_lims(prefix + sciimg + '.fits', wltrim_frac)
 
-    imagename = 't' + prefix + sciimg + '.fits'
-    if os.path.isfile(imagename):
-        pipe.skipwarn(imagename)
+    image_name = 't' + prefix + sciimg + '.fits'
+    if os.path.isfile(image_name):
+        pipe.skipwarn(image_name)
     else:
         iraf.gftransform(
             prefix + sciimg, wavtraname='eprg' + arc, fl_vardq=vardq,
             w1=wl1, w2=wl2,
         )
-    
+
     prefix = 't' + prefix
     #
     #   Sky subtraction
     #
-    imagename = 's' + prefix + sciimg + '.fits'
-    if os.path.isfile(imagename):
-        pipe.skipwarn(imagename)
+    image_name = 's' + prefix + sciimg + '.fits'
+    if os.path.isfile(image_name):
+        pipe.skipwarn(image_name)
     else:
         iraf.gfskysub(
             prefix + sciimg, expr='default', combine='median',
             reject='avsigclip', scale='none', zero='none', weight='none',
             sepslits='yes', fl_inter='no', lsigma=1, hsigma=1,
         )
-    
+
     prefix = 's' + prefix
     #
     #   Apply flux calibration to galaxy
     #
-    imagename = 'c' + prefix + sciimg + '.fits'
-    if os.path.isfile(imagename):
-        pipe.skipwarn(imagename)
+    image_name = 'c' + prefix + sciimg + '.fits'
+    if os.path.isfile(image_name):
+        pipe.skipwarn(image_name)
     else:
         iraf.gscalibrate(
             prefix + sciimg, sfuncti=starimg,
@@ -214,29 +209,12 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, twilight_flat, sciimg,
     #
     #   Create data cubes
     #
-    #   GFCUBE has a problem when interpolating over the chip gaps, so
-    #   the recommended value for bitmask is 8, in order to only interpolate
-    #   cosmic-rays and similiar short period variations. Nevertheless,
-    #   when building the combined cube, the actual data quality values
-    #   are needed, to ignore the bad pixels in one exposure and keep
-    #   the good ones from the other exposure. Therefore, in a true
-    #   "gambiarra", GFCUBE is run two time, and the correct
-    #   dataquality plane is inserted into the correct science data
-    #   cube.
-    #
-    #
-    imagename = 'd' + prefix + sciimg + '.fits'
-    if os.path.isfile(imagename):
-        pipe.skipwarn(imagename)
+    image_name = 'd' + prefix + sciimg + '.fits'
+    if os.path.isfile(image_name):
+        pipe.skipwarn(image_name)
     else:
-        iraf.gfcube(
-            prefix + sciimg, outimage='d' + prefix + sciimg, ssample=.1,
-            fl_atmdisp='yes', fl_var=vardq, fl_dq=vardq, bitmask=cube_bit_mask,
-            fl_flux='yes')
-        iraf.gfcube(
-            prefix + sciimg, outimage='dataquality.fits', ssample=.1,
-            fl_atmdisp='yes', fl_var=vardq, fl_dq=vardq, bitmask=0,
-            fl_flux='yes')
-        iraf.imcopy(
-            'dataquality.fits[DQ]', 'd' + prefix + sciimg + '[DQ, OVERWRITE]')
-        iraf.delete('dataquality.fits')
+        data_cube = CubeBuilder(prefix + sciimg + '.fits')
+        data_cube.build_cube()
+        data_cube.fit_refraction_function()
+        data_cube.fix_atmospheric_refraction()
+        data_cube.write(image_name)
