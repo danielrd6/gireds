@@ -192,8 +192,11 @@ class CubeBuilder:
 
         header['CRVAL3'] = self.wavelength_keys['crval']
         header['CD1_1'] = -self.sampling
+        header['CDELT1'] = -self.sampling
         header['CD2_2'] = -self.sampling
+        header['CDELT2'] = -self.sampling
         header['CD3_3'] = self.wavelength_keys['cd']
+        header['CDELT3'] = self.wavelength_keys['cd']
 
     @staticmethod
     def copy_header(old, new):
