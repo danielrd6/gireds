@@ -30,13 +30,13 @@ class CubeBuilder:
     def __init__(self, file_name, sampling=0.1):
         self.file_name = file_name
         with fits.open(file_name) as f:
-            self.data = ma.masked_invalid(f['SCI'].data)
+            self.science = ma.masked_invalid(f['SCI'].data)
             self.mdf = table.Table(f['MDF'].data)
             self.variance = ma.masked_invalid(f['VAR'].data) if 'VAR' in f else None
             self.data_quality = ma.masked_invalid(f['DQ'].data) if 'DQ' in f else None
             self.wavelength_keys = {'crval': f['SCI'].header['crval1'], 'cd': f['SCI'].header['CD1_1']}
 
-        self.n_wavelength = self.data.shape[1]
+        self.n_wavelength = self.science.shape[1]
         self.sampling = sampling
 
         self.flux_density()
@@ -54,24 +54,24 @@ class CubeBuilder:
         lenslet_area = 3.0 * np.sqrt(3.0) * np.square(lenslet_radius) / 2.0
         correction_factor = 1.0 / lenslet_area
 
-        self.data *= correction_factor
+        self.science *= correction_factor
         if self.variance is not None:
             self.variance *= correction_factor
 
     def get_mean_spectrum(self):
-        assert len(self.data.shape) == 3, 'Data is still 2D. Run CubeBuilder.build_cube.'
-        y, x = np.indices(self.data.shape[1:])
-        y0, x0 = ndimage.center_of_mass(self.data.sum(0))
+        assert len(self.science.shape) == 3, 'Data is still 2D. Run CubeBuilder.build_cube.'
+        y, x = np.indices(self.science.shape[1:])
+        y0, x0 = ndimage.center_of_mass(self.science.sum(0))
         r = np.sqrt(np.square(x - x0) + np.square(y - y0))
 
-        spectrum = self.data[:, r < 10].sum(1)
+        spectrum = self.science[:, r < 10].sum(1)
         spectrum /= ma.median(spectrum)
 
         return spectrum, (y0, x0)
 
     def fit_refraction_function(self, steps=10, degree=3, plot=False, n_iterate=5, sigma_threshold=3):
         mean_spectrum, x0 = self.get_mean_spectrum()
-        data = copy.deepcopy(self.data)
+        data = copy.deepcopy(self.science)
         data /= mean_spectrum[:, np.newaxis, np.newaxis]
 
         total_planes = np.arange(data.shape[0])
@@ -107,7 +107,7 @@ class CubeBuilder:
         self.atmospheric_shift = {'x': shift[1], 'y': shift[0]}
 
     def _get_sources(self):
-        source = ['data']
+        source = ['science']
         if self.variance is not None:
             source.append('variance')
         if self.data_quality is not None:
@@ -232,6 +232,119 @@ class CubeBuilder:
                     self.copy_header(old[name].header, new[name].header)
                 if key == 'data':
                     new['SCI'].header['BUNIT'] = 'erg/cm2/s/A/arcsec2'
+
+            new.writeto(output, overwrite=overwrite)
+
+
+class Combine:
+    def __init__(self, input_files):
+        self.input_files = input_files
+        self.n_images = len(input_files)
+        self.offsets = np.array([])
+
+        self.science = None
+        self.variance = None
+        self.data_quality = None
+        self.std_dev = None
+
+    def get_offsets(self):
+        offsets = []
+        for name in self.input_files:
+            with fits.open(name, mode='readonly') as fits_file:
+                observatory = fits_file['primary'].header['observat'].lower()
+                x_off = fits_file['primary'].header['xoffset'] / fits_file['sci'].header['cdelt1']
+                y_off = fits_file['primary'].header['yoffset'] / fits_file['sci'].header['cdelt2']
+                z_off = fits_file['sci'].header['crval3'] / fits_file['sci'].header['cd3_3']
+                if observatory == 'gemini-north':
+                    x_off *= +1
+                    y_off *= +1
+                offsets.append([z_off, y_off, x_off])
+        self.offsets = np.round(np.array(offsets) - np.min(offsets, axis=0), decimals=0).astype(int)
+
+    def get_padding(self, name):
+        index = self.input_files.index(name)
+        offsets = self.offsets
+        extremes = {'min': offsets.min(axis=0), 'max': offsets.max(axis=0)}
+        pad = []
+        current = offsets[index]
+        for i in range(offsets.shape[1]):
+            p = (abs(current[i] - extremes['min'][i]), abs(current[i] - extremes['max'][i]))
+            pad.append(p)
+        return pad
+
+    def _combine_data(self, extension, method='average', normalize=False, mask_data=False):
+        data = []
+        flags = []
+
+        for name in self.input_files:
+            with fits.open(name, 'readonly') as f:
+                if extension not in f:
+                    return None
+                padding = self.get_padding(name)
+                data.append(np.pad(f[extension].data, padding, mode='constant', constant_values=0.0))
+                if mask_data and ('dq' in f):
+                    # The first bit is for generally bad pixels, including regions that are not illuminated.
+                    flags.append(np.pad(f['dq'].data, padding, mode='constant', constant_values=1))
+                else:
+                    flags.append(np.zeros_like(data[-1]).astype('int16'))
+
+        data = ma.array(data=data, mask=np.array(flags) > 0)
+
+        if normalize:
+            median_fluxes = ma.average(data[:, 3000:3100, :, :], 1)
+            norm_flux = np.average(median_fluxes, axis=0)
+            norm_factor = median_fluxes / norm_flux
+            data /= norm_factor[:, np.newaxis, :, :]
+
+        result = getattr(ma, method)(data, axis=0)
+        return result
+
+    def _combine_data_quality(self, extension='dq'):
+        data = []
+        for name in self.input_files:
+            with fits.open(name, 'readonly') as f:
+                if extension not in f:
+                    return None
+                padding = self.get_padding(name)
+                data.append(np.pad(f[extension].data, padding, mode='constant', constant_values=1).astype('int16'))
+        data = np.array(data)
+
+        r = copy.deepcopy(data[0])
+        for i in range(1, len(self.input_files)):
+            r |= data[i]
+        result = ma.array(r, mask=None)
+        return result
+
+    def combine(self):
+        self.get_offsets()
+        self.science = self._combine_data('sci', method='average', normalize=True)
+        self.std_dev = self._combine_data('sci', method='std', normalize=True)
+
+        var = self._combine_data('var', method='sum', normalize=True)
+        if var is not None:
+            var /= (len(self.input_files) ** 2)
+        self.variance = var
+        self.data_quality = self._combine_data_quality()
+
+    def write(self, output, overwrite=False):
+        new = fits.HDUList()
+        with fits.open(self.input_files[0]) as old:
+            new.append(old['PRIMARY'])
+
+            for i, j in enumerate(self.input_files):
+                new['primary'].header['IMCB{:04d}'.format(i)] = self.input_files[i]
+
+            extension_names = {'science': 'SCI', 'variance': 'VAR', 'data_quality': 'DQ'}
+            for key in ['science', 'variance', 'data_quality']:
+                data = getattr(self, key)
+                if data is None:
+                    continue
+                else:
+                    name = extension_names[key]
+                    hdu = fits.ImageHDU(data=data.data, header=old[name].header, name=name)
+                    for i in range(3):
+                        hdu.header['naxis{:d}'.format(i + 1)] = data.shape[2 - i]
+                    new.append(hdu)
 
             new.writeto(output, overwrite=overwrite)
 
