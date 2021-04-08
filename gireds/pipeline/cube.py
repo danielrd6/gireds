@@ -219,7 +219,7 @@ class CubeBuilder:
             if self.atmospheric_shift is not None:
                 new['PRIMARY'].header.append(('ATMCORR', 'polyfit', 'Atmospheric refraction correction.'))
 
-            extension_names = {'data': 'SCI', 'variance': 'VAR', 'data_quality': 'DQ'}
+            extension_names = {'science': 'SCI', 'variance': 'VAR', 'data_quality': 'DQ'}
 
             for key in self._get_sources():
                 name = extension_names[key]
@@ -230,7 +230,7 @@ class CubeBuilder:
                     new.append(fits.ImageHDU(data=data, name=name))
                     self.set_wcs(new[name].header)
                     self.copy_header(old[name].header, new[name].header)
-                if key == 'data':
+                if key == 'science':
                     new['SCI'].header['BUNIT'] = 'erg/cm2/s/A/arcsec2'
 
             new.writeto(output, overwrite=overwrite)
