@@ -167,7 +167,7 @@ def cal_reduction(rawdir, rundir, flat, arc, twilight, twilight_flat, bias, bpm,
                       fl_skysub='no', recenter='no', fl_vardq='yes', fl_fulldq='yes', mdfdir='gmos$data/')
 
         # Gemfix
-        iraf.gemfix('rg' + flat, out='prg' + flat, method='fit1d', bitmask=1, axis=1)
+        iraf.gemfix('rg' + flat, out='prg' + flat, method='fit1d', bitmask=1, axis=1, logfile=iraf.gmos.logfile)
 
         #
         #   Extract spectra
