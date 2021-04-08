@@ -50,22 +50,27 @@ def query_archive(query):
     print('Total data size: {:d}'.format(total_data_size))
 
 
-def date_span(datestring, spandays):
+def date_span(f_name, spandays):
 
-    date = dt.datetime(int(datestring[:4]),
-                       int(datestring[4:6]),
-                       int(datestring[6:9]), 0, 0)
+    h = pf.getheader(f_name)
+    if 'DATE-OBS' in h:
+        date_string = h['DATE-OBS']
+    elif 'DATE' in h:
+        date_string = h['DATE']
+    else:
+        raise RuntimeError('Could not find observation date in image header: {:s}'.format(f_name))
+
+    date = dt.datetime.strptime(date_string, '%Y-%m-%d')
+    output_format = '%Y%m%d'
 
     if spandays == 0:
-        fmt = '{:04d}{:02d}{:02d}'
-        vals = (date.year, date.month, date.day)
+        s = date.strftime(output_format)
     else:
-        fmt = '{:04d}{:02d}{:02d}-{:04d}{:02d}{:02d}'
         ld = date - dt.timedelta(days=spandays)
         hd = date + dt.timedelta(days=spandays)
-        vals = (ld.year, ld.month, ld.day, hd.year, hd.month, hd.day)
+        s = "-".join([ld.strftime(output_format), hd.strftime(output_format)])
 
-    return (fmt.format(*vals))
+    return s
 
 
 def wl_span(wl, span):
@@ -131,7 +136,7 @@ def get_flat(target_image, ttol, wltol):
             t['maskname'],
             t['instrument'],
             t['binning'],
-            date_span(t['filename'][1:9], ttol),
+            date_span(t['filename'], ttol),
             t['grating'],
             wl_span(t['grating_wl'], wltol),
             'NotFail']
@@ -159,7 +164,7 @@ def get_arc(target_image, ttol):
             t['maskname'],
             t['instrument'],
             t['binning'],
-            date_span(t['filename'][1:9], ttol),
+            date_span(t['filename'], ttol),
             t['grating'],
             wl_span(t['grating_wl'], span=1),
             'NotFail']
@@ -187,7 +192,7 @@ def get_twilight(target_image, ttol, wltol):
             t['maskname'],
             t['instrument'],
             t['binning'],
-            date_span(t['filename'][1:9], ttol),
+            date_span(t['filename'], ttol),
             t['grating'],
             wl_span(t['grating_wl'], span=wltol),
             'NotFail']
@@ -198,14 +203,8 @@ def get_twilight(target_image, ttol, wltol):
 
 
 def get_bias(target_image, ttol):
-
     t = target_image
-
-    pars = ['PROCESSED_BIAS',
-            t['instrument'],
-            t['binning'],
-            date_span(t['filename'][1:9], ttol)]
-
+    pars = ['PROCESSED_BIAS', t['instrument'], t['binning'], date_span(t['filename'], ttol)]
     query = (len(pars)*'/{:s}').format(*pars)
     return query
 
@@ -213,32 +212,21 @@ def get_bias(target_image, ttol):
 def main():
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('image', help='Target image or, in the case of '
-                        'options q or d, query string.')
+    parser.add_argument('image', help='Target image or, in the case of options q or d, query string.')
     parser.add_argument('-a', '--arc', help='Get arc', action='store_true')
     parser.add_argument('-f', '--flat', help='Get flat', action='store_true')
     parser.add_argument('-b', '--bias', help='Get bias', action='store_true')
     parser.add_argument('-q', '--query-only', action='store_true',
                         help='Only queries the archive with the given string')
-    parser.add_argument('-t', '--twilight',
-                        help='Get bias', action='store_true')
-    parser.add_argument('-d', '--download', action='store_true',
-                        help='Only downloads and unpacks a given query')
-    parser.add_argument('-l', '--list-only', action='store_true',
-                        help='Only lists files to download')
-    parser.add_argument('--twilight-ttol', help="Twilight tolerance in days",
-                        nargs='?', default='180')
-    parser.add_argument('--twilight-wltol',
-                        help="Twilight tolerance in nanometers",
-                        nargs='?', default='7')
-    parser.add_argument('--bias-ttol', help="Bias tolerance in days",
-                        nargs='?', default='30')
-    parser.add_argument('--flat-ttol', help="Flat tolerance in days",
-                        nargs='?', default='2')
-    parser.add_argument('--arc-ttol', help="Flat tolerance in days",
-                        nargs='?', default='2')
-    parser.add_argument('--flat-wltol', help="Flat tolerance in nanometers",
-                        nargs='?', default='6')
+    parser.add_argument('-t', '--twilight', help='Get bias', action='store_true')
+    parser.add_argument('-d', '--download', action='store_true', help='Only downloads and unpacks a given query')
+    parser.add_argument('-l', '--list-only', action='store_true', help='Only lists files to download')
+    parser.add_argument('--twilight-ttol', help="Twilight tolerance in days", nargs='?', default='180')
+    parser.add_argument('--twilight-wltol', help="Twilight tolerance in nanometers", nargs='?', default='7')
+    parser.add_argument('--bias-ttol', help="Bias tolerance in days", nargs='?', default='30')
+    parser.add_argument('--flat-ttol', help="Flat tolerance in days", nargs='?', default='2')
+    parser.add_argument('--arc-ttol', help="Flat tolerance in days", nargs='?', default='2')
+    parser.add_argument('--flat-wltol', help="Flat tolerance in nanometers", nargs='?', default='6')
 
     args = parser.parse_args()
     if (not args.download) and (not args.query_only):
