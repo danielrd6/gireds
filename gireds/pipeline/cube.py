@@ -5,10 +5,15 @@ import numpy as np
 from astropy import table
 from astropy.io import fits
 from astropy.stats import sigma_clip
+from astropy.modeling import fitting, models
 from matplotlib.patches import RegularPolygon
 from numpy import ma
 from scipy import ndimage
-from scipy.interpolate import griddata
+from scipy.interpolate import griddata, interp1d
+from scipy.optimize import minimize
+from astropy import wcs
+import image_registration
+from image_registration.fft_tools import shiftnd
 
 
 def get_points(mdf, sampling=0.02, cushion=0.0):
@@ -35,8 +40,10 @@ class CubeBuilder:
             self.variance = ma.masked_invalid(f['VAR'].data) if 'VAR' in f else None
             self.data_quality = ma.masked_invalid(f['DQ'].data) if 'DQ' in f else None
             self.wavelength_keys = {'crval': f['SCI'].header['crval1'], 'cd': f['SCI'].header['CD1_1']}
+            w = wcs.WCS(f['sci'].header, naxis=[1])
 
         self.n_wavelength = self.science.shape[1]
+        self.wavelength = w.wcs_pix2world(np.arange(self.n_wavelength), 0)[0]
         self.sampling = sampling
 
         self.flux_density()
@@ -58,40 +65,72 @@ class CubeBuilder:
         if self.variance is not None:
             self.variance *= correction_factor
 
-    def get_mean_spectrum(self):
-        assert len(self.science.shape) == 3, 'Data is still 2D. Run CubeBuilder.build_cube.'
-        y, x = np.indices(self.science.shape[1:])
-        y0, x0 = ndimage.center_of_mass(self.science.sum(0))
-        r = np.sqrt(np.square(x - x0) + np.square(y - y0))
+    @staticmethod
+    def _check_registration(reference, images):
+        offsets = []
+        for i in images:
+            x_off, y_off, x_err, y_err = image_registration.chi2_shift(reference, i)
+            offsets.append([x_off, y_off])
+        return np.array(offsets)
 
-        spectrum = self.science[:, r < 10].sum(1)
-        spectrum /= ma.median(spectrum)
+    def _debug_plots(self, reference, data, planes):
+        fig, ax = plt.subplots(nrows=3, ncols=4, sharex='col', sharey='row')
+        x_off, y_off = [self.atmospheric_shift[_] for _ in 'xy']
+        ax = ax.flatten()
+        for i, j in enumerate(planes):
+            if i >= len(ax):
+                break
+            im = ax[i].imshow(reference - ndimage.shift(data[i], (-y_off(j), -x_off(j))), origin='lower')
+            plt.colorbar(im, ax=ax[i])
+            ax[i].set_title(int(j))
+        fig.tight_layout()
+        plt.show()
+        plt.close(fig)
 
-        return spectrum, (y0, x0)
+    def fit_refraction_function(self, steps=10, plot=False, sample=None, debug=False):
+        """
+        Fits a refraction function using a 3rd order Legendre
+        Polynomial to the x and y pixel offsets caused by
+        atmospheric refraction.
 
-    def fit_refraction_function(self, steps=10, degree=3, plot=False, n_iterate=5, sigma_threshold=3):
-        mean_spectrum, x0 = self.get_mean_spectrum()
+        Parameters
+        ----------
+        steps : int
+            Number of segments of the data cube to consider. The
+            larger this number, the finer the detail in fitting
+            offsets.
+        plot : bool
+            Plots the function and the corresponding data points.
+        sample : tuple, (w_0, w_1)
+            Wavelength interval to be considered in the fit.
+        debug : bool
+            Plots debugging graphs to confirm that the shifts
+            provided are actually matching the reference.
+
+        Returns
+        -------
+        None
+        """
         data = copy.deepcopy(self.science)
-        data /= mean_spectrum[:, np.newaxis, np.newaxis]
 
-        total_planes = np.arange(data.shape[0])
         d = np.array([ma.median(_, axis=0) for _ in np.array_split(data, steps)])
-        for i in range(d.shape[0]):
-            peak_height = ma.max(d[i])
-            d[i][d[i] < (peak_height / 2.0)] = 0
+        md = ma.median(data, axis=0)
+        md /= md.max()
+        for i, j in enumerate(d):
+            d[i] /= j.max()
 
-        planes = np.array([((_[-1] + _[0]) / 2) for _ in np.array_split(np.arange(data.shape[0]), steps)])
-        centers = np.array([ndimage.center_of_mass(_) for _ in d])
-        centers = [x0[_] - centers[:, _] for _ in range(2)]
+        planes = np.array([((_[-1] + _[0]) / 2) for _ in np.array_split(self.wavelength, steps)])
+        if sample is not None:
+            sample_mask = (planes >= sample[0]) & (planes <= sample[1])
+            d = d[sample_mask]
+            planes = planes[sample_mask]
+
+        offsets = self._check_registration(reference=md, images=d)
 
         shift = []
-
-        for direction in range(2):
-            mask = np.zeros_like(planes, dtype=bool)
-            for i in range(n_iterate):
-                fit = np.polyval(np.polyfit(planes[~mask], centers[direction][~mask], deg=degree), planes)
-                mask = sigma_clip(centers[direction] - fit, sigma=sigma_threshold, iters=1).mask
-            fit = np.polyval(np.polyfit(planes[~mask], centers[direction][~mask], deg=degree), total_planes)
+        for z in [offsets[:, _] for _ in range(2)]:
+            fitter = fitting.LinearLSQFitter()
+            fit = fitter(models.Legendre1D(degree=3), planes, z)
             shift.append(fit)
 
         if plot:
@@ -99,12 +138,15 @@ class CubeBuilder:
 
             for i in range(2):
                 ax = fig.add_subplot(1, 2, i + 1)
-                ax.scatter(planes, centers[i], c=planes)
-                ax.plot(total_planes, shift[i])
+                ax.scatter(planes, offsets[:, i], c=planes)
+                ax.plot(self.wavelength, shift[i](self.wavelength))
 
             plt.show()
 
-        self.atmospheric_shift = {'x': shift[1], 'y': shift[0]}
+        self.atmospheric_shift = {i: j for (i, j) in zip('xy', shift)}
+
+        if debug:
+            self._debug_plots(md, d, planes)
 
     def _get_sources(self):
         source = ['science']
@@ -134,7 +176,7 @@ class CubeBuilder:
         assert self.atmospheric_shift is not None, \
             'Atmospheric shift is not defined. Please run the method fit_refraction_function prior to this method.'
 
-        x_shift, y_shift = [self.atmospheric_shift[_] for _ in 'xy']
+        x_shift, y_shift = [self.atmospheric_shift[_](self.wavelength) for _ in 'xy']
 
         for s in self._get_sources():
             data = copy.deepcopy(getattr(self, s))
@@ -142,10 +184,10 @@ class CubeBuilder:
 
             if s == 'data_quality':
                 for i, j in enumerate(x_shift):
-                    data[i] = self.roll_and_pad(data[i], (y_shift[i], x_shift[i]))
+                    data[i] = self.roll_and_pad(data[i], (-y_shift[i], -x_shift[i]))
             else:
                 for i, j in enumerate(x_shift):
-                    data[i] = ndimage.shift(data[i], (y_shift[i], x_shift[i]), mode='constant', cval=0.0)
+                    data[i] = ndimage.shift(data[i], (-y_shift[i], -x_shift[i]), mode='constant', cval=0.0)
 
             setattr(self, s, ma.masked_invalid(data))
 
@@ -217,7 +259,7 @@ class CubeBuilder:
             new.append(old['PRIMARY'])
 
             if self.atmospheric_shift is not None:
-                new['PRIMARY'].header.append(('ATMCORR', 'polyfit', 'Atmospheric refraction correction.'))
+                new['PRIMARY'].header.append(('ATMCORR', 'inverse function', 'Atmospheric refraction correction.'))
 
             extension_names = {'science': 'SCI', 'variance': 'VAR', 'data_quality': 'DQ'}
 

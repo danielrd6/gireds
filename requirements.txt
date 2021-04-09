@@ -3,3 +3,4 @@ astropy>=2.0
 scipy~=1.2.1
 matplotlib>=2.2
 pyraf~=2.1.15
+image_registration
