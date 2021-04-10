@@ -4,16 +4,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 from astropy import table
 from astropy.io import fits
-from astropy.stats import sigma_clip
+from astropy import wcs
 from astropy.modeling import fitting, models
 from matplotlib.patches import RegularPolygon
 from numpy import ma
 from scipy import ndimage
-from scipy.interpolate import griddata, interp1d
-from scipy.optimize import minimize
+from scipy.interpolate import griddata
 from astropy import wcs
 import image_registration
-from image_registration.fft_tools import shiftnd
 
 
 def get_points(mdf, sampling=0.02, cushion=0.0):
@@ -289,16 +287,24 @@ class Combine:
         self.data_quality = None
         self.std_dev = None
 
+    def _get_wavelength_end_points(self):
+        wep = []
+        for name in self.input_files:
+            with fits.open(name, mode='readonly') as f:
+                w = wcs.WCS(f['sci'].header, naxis=[3])
+                wep.append(w.wcs_pix2world([0, f['sci'].data.shape[0]], 0))
+        self.wavelength_end_points = np.array(wep)
+
     def get_offsets(self):
         offsets = []
         for name in self.input_files:
-            with fits.open(name, mode='readonly') as fits_file:
-                observatory = fits_file['primary'].header['observat'].lower()
-                x_off = fits_file['primary'].header['xoffset'] / fits_file['sci'].header['cdelt1']
-                y_off = fits_file['primary'].header['yoffset'] / fits_file['sci'].header['cdelt2']
-                z_off = fits_file['sci'].header['crval3'] / fits_file['sci'].header['cd3_3']
+            with fits.open(name, mode='readonly') as f:
+                observatory = f['primary'].header['observat'].lower()
+                x_off = f['primary'].header['xoffset'] / f['sci'].header['cdelt1']
+                y_off = f['primary'].header['yoffset'] / f['sci'].header['cdelt2']
+                z_off = f['sci'].header['crval3'] / f['sci'].header['cd3_3']
                 if observatory == 'gemini-north':
-                    x_off *= +1
+                    x_off *= -1
                     y_off *= +1
                 offsets.append([z_off, y_off, x_off])
         self.offsets = np.round(np.array(offsets) - np.min(offsets, axis=0), decimals=0).astype(int)
@@ -313,6 +319,17 @@ class Combine:
             p = (abs(current[i] - extremes['min'][i]), abs(current[i] - extremes['max'][i]))
             pad.append(p)
         return pad
+
+    @staticmethod
+    def crop_data(data):
+        new_data = data[:]
+        for axis in range(3):
+            min_length = np.min([_.shape[axis] for _ in data])
+            for i, j in enumerate(new_data):
+                s = [slice(None), slice(None), slice(None)]
+                s[axis] = slice(0, min_length)
+                new_data[i] = new_data[i][tuple(s)]
+        return new_data
 
     def _combine_data(self, extension, method='average', normalize=False, mask_data=False):
         data = []
@@ -329,7 +346,8 @@ class Combine:
                     flags.append(np.pad(f['dq'].data, padding, mode='constant', constant_values=1))
                 else:
                     flags.append(np.zeros_like(data[-1]).astype('int16'))
-
+        data = self.crop_data(data)
+        flags = self.crop_data(flags)
         data = ma.array(data=data, mask=np.array(flags) > 0)
 
         if normalize:
@@ -349,7 +367,7 @@ class Combine:
                     return None
                 padding = self.get_padding(name)
                 data.append(np.pad(f[extension].data, padding, mode='constant', constant_values=1).astype('int16'))
-        data = np.array(data)
+        data = np.array(self.crop_data(data))
 
         r = copy.deepcopy(data[0])
         for i in range(1, len(self.input_files)):
