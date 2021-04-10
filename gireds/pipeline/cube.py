@@ -12,6 +12,7 @@ from numpy import ma
 from scipy import ndimage
 from scipy.interpolate import griddata
 from scipy.optimize import minimize
+from gireds.pipeline.models import DifferentialRefraction
 
 
 def get_points(mdf, sampling=0.02, cushion=0.0):
@@ -38,6 +39,9 @@ class CubeBuilder:
             self.variance = ma.masked_invalid(f['VAR'].data) if 'VAR' in f else None
             self.data_quality = ma.masked_invalid(f['DQ'].data) if 'DQ' in f else None
             self.wavelength_keys = {'crval': f['SCI'].header['crval1'], 'cd': f['SCI'].header['CD1_1']}
+            self.air_mass = f['primary'].header['airmass']
+            self.temperature = f['primary'].header['tambient']
+            self.pressure = f['primary'].header['pressure']
             w = wcs.WCS(f['sci'].header, naxis=[1])
 
         self.n_wavelength = self.science.shape[1]
@@ -112,33 +116,55 @@ class CubeBuilder:
         data = copy.deepcopy(self.science)
 
         d = np.array([ma.median(_, axis=0) for _ in np.array_split(data, steps)])
-        md = ma.median(data, axis=0)
+
+        planes = np.array([((_[-1] + _[0]) / 2) for _ in np.array_split(self.wavelength, steps)])
+
+        if sample is None:
+            sample = self.wavelength[[0, -1]]
+
+        mid_point = (sample[1] - sample[0]) / 2 + sample[0]
+        sample_mask = (planes >= sample[0]) & (planes <= sample[1])
+        d = d[sample_mask]
+        planes = planes[sample_mask]
+
+        md = ma.median(d, axis=0)
         md /= md.max()
         for i, j in enumerate(d):
             d[i] /= j.max()
 
-        planes = np.array([((_[-1] + _[0]) / 2) for _ in np.array_split(self.wavelength, steps)])
-        if sample is not None:
-            sample_mask = (planes >= sample[0]) & (planes <= sample[1])
-            d = d[sample_mask]
-            planes = planes[sample_mask]
+        offsets = self._check_registration(reference=md, images=d) * self.sampling
 
-        offsets = self._check_registration(reference=md, images=d)
+        if debug:
+            print(self.file_name)
+            print('OFFSETS')
+            print(offsets)
 
         shift = []
-        for z in [offsets[:, _] for _ in range(2)]:
-            fitter = fitting.LinearLSQFitter()
-            fit = fitter(models.Legendre1D(degree=3), planes, z)
+        for i, z in enumerate([offsets[:, _] for _ in range(2)]):
+            model = DifferentialRefraction(temperature=self.temperature, pressure=self.pressure, air_mass=self.air_mass,
+                                           wl_0=mid_point)
+            model.temperature.fixed = True
+            model.pressure.fixed = True
+            model.air_mass.fixed = True
+            fitter = fitting.SLSQPLSQFitter()
+            # noinspection PyTypeChecker
+            fit = fitter(model, planes, z, acc=1e-12)
             shift.append(fit)
 
         if plot:
-            fig = plt.figure()
+            fig, axs = plt.subplots(2, 1, sharex='col')
 
             for i in range(2):
-                ax = fig.add_subplot(1, 2, i + 1)
+                ax = axs[i]
                 ax.scatter(planes, offsets[:, i], c=planes)
+                ax.set_ylabel('{:s}-offset (arcsec)'.format('xy'[i]))
+                ax.set_xlabel('Wavelength')
                 ax.plot(self.wavelength, shift[i](self.wavelength))
+                pars = [getattr(shift[i], _).value for _ in ['air_mass', 'wl_0', 'cos_angle']]
+                ax.set_title('secz = {:.2f}; wl_0 = {:.0f}; cos(i) = {:.2f}'.format(*pars))
+                ax.grid()
 
+            fig.tight_layout()
             plt.show()
 
         self.atmospheric_shift = {i: j for (i, j) in zip('xy', shift)}
@@ -331,7 +357,7 @@ class Combine:
                 new_data[i] = new_data[i][tuple(s)]
         return new_data
 
-    def _combine_data(self, extension, method='average', normalize=False, mask_data=False):
+    def _combine_data(self, extension, method='mean', mask_data=False):
         data = []
         flags = []
 
@@ -392,10 +418,10 @@ class Combine:
 
     def combine(self):
         self.get_offsets()
-        self.science = self._combine_data('sci', method='average', normalize=True)
-        self.std_dev = self._combine_data('sci', method='std', normalize=True)
+        self.science = self._combine_data('sci', method='mean')
+        self.std_dev = self._combine_data('sci', method='std')
 
-        var = self._combine_data('var', method='sum', normalize=True)
+        var = self._combine_data('var', method='sum')
         if var is not None:
             var /= (len(self.input_files) ** 2)
         self.variance = var
