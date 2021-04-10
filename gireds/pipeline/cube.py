@@ -1,17 +1,17 @@
 import copy
 
+import image_registration
 import matplotlib.pyplot as plt
 import numpy as np
 from astropy import table
-from astropy.io import fits
 from astropy import wcs
+from astropy.io import fits
 from astropy.modeling import fitting, models
 from matplotlib.patches import RegularPolygon
 from numpy import ma
 from scipy import ndimage
 from scipy.interpolate import griddata
-from astropy import wcs
-import image_registration
+from scipy.optimize import minimize
 
 
 def get_points(mdf, sampling=0.02, cushion=0.0):
@@ -350,14 +350,29 @@ class Combine:
         flags = self.crop_data(flags)
         data = ma.array(data=data, mask=np.array(flags) > 0)
 
-        if normalize:
-            median_fluxes = ma.average(data[:, 3000:3100, :, :], 1)
-            norm_flux = np.average(median_fluxes, axis=0)
-            norm_factor = median_fluxes / norm_flux
-            data /= norm_factor[:, np.newaxis, :, :]
+        data = self._match_fluxes(data)
 
         result = getattr(ma, method)(data, axis=0)
         return result
+
+    @staticmethod
+    def _match_fluxes(data):
+        # TODO: Make this function more accurate and investigate wavelength dependency.
+        median_images = ma.median(data, axis=1)
+        median_images /= ma.mean(median_images)
+
+        def res(x, im1, im2):
+            m = (im1 != 0) & (im2 != 0)
+            return ma.sum(ma.abs(im1[m] - (im2[m] * x[0])))
+
+        correction_factors = [1.0]
+        for i in range(len(median_images) - 1):
+            x0 = np.array([1.])
+            p = minimize(res, x0=x0, bounds=[[.1, 10]], args=(median_images[i], median_images[i + 1]))
+            correction_factors.append(p.x[0])
+
+        cf = np.array(correction_factors)[:, np.newaxis, np.newaxis, np.newaxis]
+        return data * cf
 
     def _combine_data_quality(self, extension='dq'):
         data = []
