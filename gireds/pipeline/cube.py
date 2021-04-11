@@ -6,12 +6,13 @@ import numpy as np
 from astropy import table
 from astropy import wcs
 from astropy.io import fits
-from astropy.modeling import fitting, models
+from astropy.modeling import fitting
 from matplotlib.patches import RegularPolygon
 from numpy import ma
 from scipy import ndimage
 from scipy.interpolate import griddata
-from scipy.optimize import minimize
+from scipy.interpolate import interp1d
+
 from gireds.pipeline.models import DifferentialRefraction
 
 
@@ -375,6 +376,7 @@ class Combine:
         data = self.crop_data(data)
         flags = self.crop_data(flags)
         data = ma.array(data=data, mask=np.array(flags) > 0)
+        data.mask |= data == 0
 
         data = self._match_fluxes(data)
 
@@ -382,23 +384,23 @@ class Combine:
         return result
 
     @staticmethod
-    def _match_fluxes(data):
-        # TODO: Make this function more accurate and investigate wavelength dependency.
-        median_images = ma.median(data, axis=1)
-        median_images /= ma.mean(median_images)
+    def _match_fluxes(data, steps=20):
+        x = np.arange(data.shape[1])
+        s = np.array([(_[1] + _[0]) / 2.0 for _ in np.array_split(x, steps)])
 
-        def res(x, im1, im2):
-            m = (im1 != 0) & (im2 != 0)
-            return ma.sum(ma.abs(im1[m] - (im2[m] * x[0])))
+        def get_cf(im1, im2):
+            mask = (~im1.mask) & (~im2.mask)
+            return ma.median(im1[mask]) / ma.median(im2[mask])
 
-        correction_factors = [1.0]
-        for i in range(len(median_images) - 1):
-            x0 = np.array([1.])
-            p = minimize(res, x0=x0, bounds=[[.1, 10]], args=(median_images[i], median_images[i + 1]))
-            correction_factors.append(p.x[0])
+        for i, d in enumerate(data[:-1]):
+            a = np.array_split(data[i], steps, axis=0)
+            b = np.array_split(data[i + 1], steps, axis=0)
+            cf = np.array([get_cf(m, n) for (m, n) in zip(a, b)])
 
-        cf = np.array(correction_factors)[:, np.newaxis, np.newaxis, np.newaxis]
-        return data * cf
+            correction = interp1d(s, cf, assume_sorted=True, kind='cubic', bounds_error=False, fill_value='extrapolate')
+            data[i + 1] *= correction(x)[:, np.newaxis, np.newaxis]
+
+        return data
 
     def _combine_data_quality(self, extension='dq'):
         data = []
@@ -418,10 +420,10 @@ class Combine:
 
     def combine(self):
         self.get_offsets()
-        self.science = self._combine_data('sci', method='mean')
-        self.std_dev = self._combine_data('sci', method='std')
+        self.science = self._combine_data('sci', method='mean', mask_data=True)
+        self.std_dev = self._combine_data('sci', method='std', mask_data=True)
 
-        var = self._combine_data('var', method='sum')
+        var = self._combine_data('var', method='mean', mask_data=True)
         if var is not None:
             var /= (len(self.input_files) ** 2)
         self.variance = var
