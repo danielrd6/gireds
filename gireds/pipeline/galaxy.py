@@ -17,6 +17,7 @@ import os
 from pyraf import iraf
 
 import pipe
+import pca
 from reduction import cal_reduction, wl_lims
 from .cube import CubeBuilder
 
@@ -206,6 +207,20 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, twilight_flat, sciimg,
             extinct='onedstds$ctioextinct.dat',
             observatory=observatory, fluxsca=1, fl_vardq=vardq)
     prefix = 'c' + prefix
+    #
+    # Remove spurious data with PCA
+    #
+    image_name = 'x' + prefix + sciimg + '.fits'
+    print(os.getcwd())
+    print(image_name)
+    if os.path.isfile(image_name):
+        pipe.skipwarn(image_name)
+    else:
+        t = pca.Tomography(prefix + sciimg + '.fits')
+        t.decompose()
+        t.remove_cosmic_rays(sigma_threshold=6.0)
+        t.write(image_name)
+    prefix = 'x' + prefix
     #
     #   Create data cubes
     #

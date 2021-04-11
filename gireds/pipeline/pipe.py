@@ -17,10 +17,8 @@ from pyraf import iraf
 
 # LOCAL
 from . import standard_star
+from . import cube
 from .galaxy import reduce_science
-from .merges import merge_cubes
-# from distutils.sysconfig import get_python_lib
-# from standard_star import reduce_stdstar
 
 
 def get_git_hash(git_dir, short=True):
@@ -538,19 +536,9 @@ class pipeline():
 
         os.chdir(self.run_dir)
 
-        # Read some keywords. Some of them can be read in step 0.
-        imgcube = [cube_prefix + sci['image'] for sci in sciobj]
-        xoff = [fits.getval(img, ext=0, keyword='xoffset') for img in imgcube]
-        yoff = [fits.getval(img, ext=0, keyword='yoffset') for img in imgcube]
-        crv3 = [fits.getval(img, ext=1, keyword='crval3') for img in imgcube]
-        cd3 = [fits.getval(img, ext=1, keyword='cdelt3') for img in imgcube]
-        cd1 = [abs(fits.getval(img, ext=1, keyword='cdelt1'))
-               for img in imgcube]
-
-        merge_cubes(
-            rawdir=self.raw_dir, rundir=self.run_dir, name=name,
-            observatory=sciobj[0]['observatory'], imgcube=imgcube, xoff=xoff,
-            yoff=yoff, crval3=crv3, cdelt3=cd3, cdelt1=cd1)
+        c = cube.Combine([cube_prefix + sci['image'] for sci in sciobj])
+        c.combine()
+        c.write(name + '_hypercube.fits')
 
 
 def filecheck(dic, cat):
@@ -616,14 +604,14 @@ def main():
 
         if pip.apply_lacos:
             if pip.cfg.getboolean('reduction', 'fl_gscrrej'):
-                cube_prefix = 'dcstexlprg'
+                cube_prefix = 'dxcstexlprg'
             else:
-                cube_prefix = 'dcstelprg'
+                cube_prefix = 'dxcstelprg'
         else:
             if pip.cfg.getboolean('reduction', 'fl_gscrrej'):
-                cube_prefix = 'dcstexprg'
+                cube_prefix = 'dxcstexprg'
             else:
-                cube_prefix = 'dcsteprg'
+                cube_prefix = 'dxcsteprg'
 
         ver_stamp = (50 * '#' + '\n' + 'GIREDS version hash: ' + pip.version +
                      '\n' + 50 * '#' + '\n')
@@ -779,18 +767,13 @@ def main():
                           listname[m] == name]
 
                 # Prefix may change
-                cubes = np.array([
-                    True if os.path.isfile(cube_prefix + sci['image'])
-                    else False for sci in sciobj])
+                cubes = np.array([True if os.path.isfile(cube_prefix + sci['image']) else False for sci in sciobj])
 
                 if not cubes.all():
                     iraf.printlog(
-                        ('ERROR! Object {:s} does not have all the necessary\n'
-                         'cube files.')
-                        .format(name), logfile=logfile, verbose='yes')
-                    iraf.printlog(
-                        'Skipping {:s}.'.format(name),
+                        ('ERROR! Object {:s} does not have all the necessary\ncube files.').format(name),
                         logfile=logfile, verbose='yes')
+                    iraf.printlog('Skipping {:s}.'.format(name), logfile=logfile, verbose='yes')
                     continue
                 else:
                     try:
