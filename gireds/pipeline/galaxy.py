@@ -218,7 +218,7 @@ def reduce_science(rawdir, rundir, flat, arc, twilight, twilight_flat, sciimg,
     else:
         t = pca.Tomography(prefix + sciimg + '.fits')
         t.decompose()
-        t.remove_cosmic_rays(sigma_threshold=6.0)
+        t.remove_cosmic_rays(sigma_threshold=10.0)
         t.write(image_name)
     prefix = 'x' + prefix
     #
