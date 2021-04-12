@@ -1,6 +1,5 @@
 import numpy as np
 from astropy.modeling import Fittable1DModel, Parameter
-from scipy.spatial.transform import Rotation
 
 
 class DifferentialRefraction(Fittable1DModel):
@@ -16,11 +15,10 @@ class DifferentialRefraction(Fittable1DModel):
     pressure = Parameter(default=500.0, min=100.0, max=800.0)
     water_vapour = Parameter(default=8.0, min=0.0, max=800.0)
     air_mass = Parameter(default=1.5, min=1.0, max=5.0)
-    cos_angle = Parameter(default=0.0, min=-1.0, max=1.0)
     wl_0 = Parameter(default=5000.0)
 
     @staticmethod
-    def evaluate(x, temperature, pressure, water_vapour, air_mass, cos_angle, wl_0):
+    def evaluate(x, temperature, pressure, water_vapour, air_mass, wl_0):
 
         def n_lambda(wavelength):
             r = np.square(1.0 / wavelength)
@@ -39,8 +37,5 @@ class DifferentialRefraction(Fittable1DModel):
             return n_tp - water_factor
 
         k = np.tan(np.arcsin(1 / air_mass))
-        delta_r = 206265.0 * (n_lambda(x * 1e-4) - n_lambda(wl_0 * 1e-4)) * k * cos_angle
-        # z = np.zeros_like(delta_r)
-        # rot = Rotation.from_euler('z', angle)
-        # v = rot.apply(np.column_stack([delta_r, z, z]))[:, 0]
+        delta_r = 206265.0 * (n_lambda(x * 1e-4) - n_lambda(wl_0 * 1e-4)) * k
         return delta_r
