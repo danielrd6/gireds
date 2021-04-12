@@ -8,6 +8,7 @@ from astropy import table
 from astropy import wcs
 from astropy.io import fits
 from astropy.modeling import fitting
+from astropy.coordinates import Angle
 from matplotlib.patches import RegularPolygon
 from numpy import ma
 from scipy import ndimage
@@ -28,6 +29,7 @@ def get_points(mdf, sampling=0.02, cushion=0.0):
         limits.append(object_fibers['{:s}INST'.format(dimension)].max() + cushion)
 
     coords = [np.arange(limits[2 * _], limits[(2 * _) + 1], sampling) for _ in range(2)]
+    # noinspection PyUnresolvedReferences
     x, y = [_.flatten() for _ in np.meshgrid(*coords)]
     shape = tuple([len(coords[_]) for _ in [1, 0]])
 
@@ -46,6 +48,9 @@ class CubeBuilder:
             self.air_mass = f['primary'].header['airmass']
             self.temperature = f['primary'].header['tambient']
             self.pressure = f['primary'].header['pressure']
+            self.parallactic_angle = self._get_parallactic_angle(f['primary'].header)
+            self.instrument_angle = np.deg2rad(f['primary'].header['iaa'])
+            self.position_angle = np.deg2rad(f['primary'].header['pa'])
             w = wcs.WCS(f['sci'].header, naxis=[1])
 
         self.n_wavelength = self.science.shape[1]
@@ -55,6 +60,52 @@ class CubeBuilder:
         self.flux_density()
         self.atmospheric_shift = None
         self.refraction_angle = 0.0
+
+    @staticmethod
+    def _get_parallactic_angle(header):
+        """
+        Calculates parallactic angle based on header information.
+
+        Parameters
+        ----------
+        header : astropy.io.fits.header.Header
+            Header of the input image.
+
+        Returns
+        -------
+        pa : float
+            Parallactic angle in radians.
+
+        Notes
+        -----
+        This equation is based on the one presented in Astronomical
+        Algorithms 2nd ed. (Jean Meeus, 1998).
+        """
+        latitude = {'gemini-north': '19:49:25.7016', 'gemini-south': '-30:14:26.700'}
+        lat = Angle(latitude[header['OBSERVAT'].lower()], unit='degree').radian
+        dec = Angle(header['DEC'], unit='degree').radian
+        ha = Angle(header['HA'], unit='hourangle').radian
+        d = (np.tan(lat) * np.cos(dec)) - (np.sin(dec) * np.cos(ha))
+        pa = np.arctan(np.sin(ha) / d)
+        return pa
+
+    def angle_representation(self):
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.arrow(0, 0, 0, 1)
+        ax.text(0, 1, 'N')
+        for i, j in enumerate(['refraction_angle', 'position_angle', 'instrument_angle', 'parallactic_angle']):
+            t = getattr(self, j) + (np.pi / 2.0)
+            x, y = np.cos(t), np.sin(t)
+            ax.arrow(0, 0, x, y, width=0.07, color='C{:d}'.format(i), alpha=0.5)
+            ax.text(x / 2.0, y / 2.0, j.replace('_angle', ''), rotation=np.rad2deg(t), ha='center', va='center')
+        w = 1.2
+        ax.set_title(self.file_name.split('/')[-1])
+        ax.set_xlim(-w, w)
+        ax.set_ylim(-w, w)
+        ax.grid()
+        ax.set_aspect('equal')
+        plt.show()
 
     def flux_density(self):
         """
@@ -83,7 +134,7 @@ class CubeBuilder:
         yo = np.array(yo)
         return xo, yo
 
-    def _debug_plots(self, reference, data, planes):
+    def _debug_plots(self, data, planes):
         fig, ax = plt.subplots(nrows=2, ncols=3, sharex='col', sharey='row')
 
         x_off = - np.cos(self.refraction_angle) * self.atmospheric_shift(planes) / self.sampling
@@ -208,7 +259,7 @@ class CubeBuilder:
         self.atmospheric_shift = shift
 
         if debug:
-            self._debug_plots(md, d, planes)
+            self._debug_plots(d, planes)
 
     def _get_sources(self):
         source = ['science']
