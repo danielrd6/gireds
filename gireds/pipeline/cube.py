@@ -3,6 +3,7 @@ import copy
 import image_registration
 import matplotlib.pyplot as plt
 import numpy as np
+from astropy.stats import sigma_clip
 from astropy import table
 from astropy import wcs
 from astropy.io import fits
@@ -12,6 +13,8 @@ from numpy import ma
 from scipy import ndimage
 from scipy.interpolate import griddata
 from scipy.interpolate import interp1d
+from scipy.spatial.transform import Rotation
+from scipy.optimize import minimize
 
 from gireds.pipeline.models import DifferentialRefraction
 
@@ -51,6 +54,7 @@ class CubeBuilder:
 
         self.flux_density()
         self.atmospheric_shift = None
+        self.refraction_angle = 0.0
 
     def flux_density(self):
         """
@@ -70,25 +74,62 @@ class CubeBuilder:
 
     @staticmethod
     def _check_registration(reference, images):
-        offsets = []
+        xo, yo = [], []
         for i in images:
             x_off, y_off, x_err, y_err = image_registration.chi2_shift(reference, i)
-            offsets.append([x_off, y_off])
-        return np.array(offsets)
+            xo.append(x_off)
+            yo.append(y_off)
+        xo = np.array(xo)
+        yo = np.array(yo)
+        return xo, yo
 
     def _debug_plots(self, reference, data, planes):
-        fig, ax = plt.subplots(nrows=3, ncols=4, sharex='col', sharey='row')
-        x_off, y_off = [self.atmospheric_shift[_] for _ in 'xy']
+        fig, ax = plt.subplots(nrows=2, ncols=3, sharex='col', sharey='row')
+
+        x_off = - np.cos(self.refraction_angle) * self.atmospheric_shift(planes) / self.sampling
+        y_off = - np.sin(self.refraction_angle) * self.atmospheric_shift(planes) / self.sampling
+
         ax = ax.flatten()
-        for i, j in enumerate(planes):
-            if i >= len(ax):
-                break
-            im = ax[i].imshow(reference - ndimage.shift(data[i], (-y_off(j), -x_off(j))), origin='lower')
-            plt.colorbar(im, ax=ax[i])
-            ax[i].set_title(int(j))
+        s = data[0].shape
+        ext = np.array([-s[1], s[1], -s[0], s[0]]) / 2.0 * self.sampling
+        for i, j in enumerate(np.linspace(0, len(planes) - 1, 6).astype(int)):
+            ax[i].imshow(ndimage.shift(data[j], (-y_off[j], -x_off[j])), origin='lower', extent=ext)
+            ax[i].grid()
+            ax[i].set_title(int(planes[j]))
         fig.tight_layout()
         plt.show()
         plt.close(fig)
+
+    @staticmethod
+    def _offsets_rotation(x, y):
+        z = np.zeros_like(x)
+        v0 = np.column_stack([x, y, z])
+        offsets = np.linalg.norm(v0, axis=1) * np.sign(x)
+
+        if np.median(np.diff(offsets)) > 0.0:
+            flip = True
+            offsets *= -1.0
+        else:
+            flip = False
+
+        v1 = np.column_stack([offsets, z, z])
+
+        t = np.arctan2(y.copy(), x.copy())
+        t[t < 0] += np.pi
+        mt = np.median(t)
+
+        def res(p, v_0, v_1):
+            rot = Rotation.from_euler('z', p[0])
+            r = np.sum(np.square(v_0 - rot.apply(v_1)))
+            return r
+
+        fit = minimize(res, np.array([mt]), args=(v0, v1), bounds=[[0.0, 2.0 * np.pi]], method='slsqp')
+
+        angle = float(fit.x)
+        if flip:
+            angle += np.pi
+
+        return offsets, angle
 
     def fit_refraction_function(self, steps=10, plot=False, sample=None, debug=False):
         """
@@ -117,58 +158,54 @@ class CubeBuilder:
         data = copy.deepcopy(self.science)
 
         d = np.array([ma.median(_, axis=0) for _ in np.array_split(data, steps)])
-
         planes = np.array([((_[-1] + _[0]) / 2) for _ in np.array_split(self.wavelength, steps)])
+
+        for i, j in enumerate(d):
+            d[i] /= j.max()
+
+        md = d[int(len(d) / 2.0)]
+        mid_point = planes[int(len(d) / 2.0)]
 
         if sample is None:
             sample = self.wavelength[[0, -1]]
 
-        mid_point = (sample[1] - sample[0]) / 2 + sample[0]
         sample_mask = (planes >= sample[0]) & (planes <= sample[1])
         d = d[sample_mask]
         planes = planes[sample_mask]
 
-        md = ma.median(d, axis=0)
-        md /= md.max()
-        for i, j in enumerate(d):
-            d[i] /= j.max()
+        x_off, y_off = self._check_registration(reference=md, images=d)
+        x_off *= self.sampling
+        y_off *= self.sampling
 
-        offsets = self._check_registration(reference=md, images=d) * self.sampling
+        offsets, angle = self._offsets_rotation(x_off, y_off)
+        self.refraction_angle = angle
 
         if debug:
             print(self.file_name)
             print('OFFSETS')
             print(offsets)
 
-        shift = []
-        for i, z in enumerate([offsets[:, _] for _ in range(2)]):
-            model = DifferentialRefraction(temperature=self.temperature, pressure=self.pressure, air_mass=self.air_mass,
-                                           wl_0=mid_point)
-            model.temperature.fixed = True
-            model.pressure.fixed = True
-            model.air_mass.fixed = True
-            fitter = fitting.SLSQPLSQFitter()
-            # noinspection PyTypeChecker
-            fit = fitter(model, planes, z, acc=1e-12)
-            shift.append(fit)
+        model = DifferentialRefraction(temperature=self.temperature, pressure=self.pressure, air_mass=self.air_mass,
+                                       wl_0=mid_point)
+        model.wl_0.fixed = True
+        fitter = fitting.FittingWithOutlierRemoval(fitting.SLSQPLSQFitter(), sigma_clip, niter=3, sigma=3.0)
+        rejected, shift = fitter(model, planes, offsets, acc=1e-12)
 
         if plot:
-            fig, axs = plt.subplots(2, 1, sharex='col')
+            fig, ax = plt.subplots(1, 1, sharex='col')
 
-            for i in range(2):
-                ax = axs[i]
-                ax.scatter(planes, offsets[:, i], c=planes)
-                ax.set_ylabel('{:s}-offset (arcsec)'.format('xy'[i]))
-                ax.set_xlabel('Wavelength')
-                ax.plot(self.wavelength, shift[i](self.wavelength))
-                pars = [getattr(shift[i], _).value for _ in ['air_mass', 'wl_0', 'cos_angle']]
-                ax.set_title('secz = {:.2f}; wl_0 = {:.0f}; cos(i) = {:.2f}'.format(*pars))
-                ax.grid()
+            ax.scatter(planes, offsets, c=planes)
+            ax.set_ylabel('Differential refraction (arcsec)')
+            ax.set_xlabel('Wavelength')
+            ax.plot(self.wavelength, shift(self.wavelength))
+            pars = [getattr(shift, _).value for _ in ['air_mass', 'wl_0']]
+            pars.append(np.rad2deg(angle))
+            ax.set_title('secz = {:.2f}; wl_0 = {:.0f}; angle = {:.2f}'.format(*pars))
+            ax.grid()
 
-            fig.tight_layout()
             plt.show()
 
-        self.atmospheric_shift = {i: j for (i, j) in zip('xy', shift)}
+        self.atmospheric_shift = shift
 
         if debug:
             self._debug_plots(md, d, planes)
@@ -201,7 +238,8 @@ class CubeBuilder:
         assert self.atmospheric_shift is not None, \
             'Atmospheric shift is not defined. Please run the method fit_refraction_function prior to this method.'
 
-        x_shift, y_shift = [self.atmospheric_shift[_](self.wavelength) for _ in 'xy']
+        x_shift = - np.cos(self.refraction_angle) * self.atmospheric_shift(self.wavelength) / self.sampling
+        y_shift = - np.sin(self.refraction_angle) * self.atmospheric_shift(self.wavelength) / self.sampling
 
         for s in self._get_sources():
             data = copy.deepcopy(getattr(self, s))
