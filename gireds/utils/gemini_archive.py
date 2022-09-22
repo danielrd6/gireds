@@ -1,10 +1,12 @@
-import urllib
-import json
-import subprocess as sp
-import astropy.io.fits as pf
 import argparse
-import time
 import datetime as dt
+import json
+import os.path
+import subprocess as sp
+import time
+import urllib
+
+import astropy.io.fits as pf
 import numpy as np
 
 
@@ -40,7 +42,7 @@ def query_archive(query):
         fields = [
             f['name'],
             f['observation_class'], f['observation_type'],
-            f['qa_state'],  f['object'], f['central_wavelength'],
+            f['qa_state'], f['object'], f['central_wavelength'],
             f['disperser'], f['filter_name'], f['focal_plane_mask']]
 
         total_data_size += f['data_size']
@@ -49,9 +51,11 @@ def query_archive(query):
 
     print('Total data size: {:d}'.format(total_data_size))
 
+    file_names = [_["name"] for _ in files]
+    return file_names
+
 
 def date_span(f_name, spandays):
-
     h = pf.getheader(f_name)
     if 'DATE-OBS' in h:
         date_string = h['DATE-OBS']
@@ -82,6 +86,8 @@ def wl_span(wl, span):
     ----------
     wl : number
         Wavelength in nanometers
+    span : number
+        Wavelength radius for search in nanometers.
 
     """
 
@@ -127,6 +133,10 @@ def get_flat(target_image, ttol, wltol):
     ----------
     target_image : dictionary or structured array
         The parameters for the target image.
+    ttol : number
+        Time tolerance for the search.
+    wltol : number
+        Wavelength tolerance for the search.
     """
 
     t = target_image
@@ -141,7 +151,7 @@ def get_flat(target_image, ttol, wltol):
             wl_span(t['grating_wl'], wltol),
             'NotFail']
 
-    query = (len(pars)*'/{:s}').format(*pars)
+    query = (len(pars) * '/{:s}').format(*pars)
 
     return query
 
@@ -155,6 +165,8 @@ def get_arc(target_image, ttol):
     ----------
     target_image : dictionary or structured array
         The parameters for the target image.
+    ttol : number
+        Time tolerance for the search.
     """
 
     t = target_image
@@ -169,7 +181,7 @@ def get_arc(target_image, ttol):
             wl_span(t['grating_wl'], span=1),
             'NotFail']
 
-    query = (len(pars)*'/{:s}').format(*pars)
+    query = (len(pars) * '/{:s}').format(*pars)
 
     return query
 
@@ -183,6 +195,10 @@ def get_twilight(target_image, ttol, wltol):
     ----------
     target_image : dictionary or structured array
         The parameters for the target image.
+    ttol : number
+        Time tolerance for the search.
+    wltol : number
+        Wavelength tolerance for the search.
     """
 
     t = target_image
@@ -197,7 +213,7 @@ def get_twilight(target_image, ttol, wltol):
             wl_span(t['grating_wl'], span=wltol),
             'NotFail']
 
-    query = (len(pars)*'/{:s}').format(*pars)
+    query = (len(pars) * '/{:s}').format(*pars)
 
     return query
 
@@ -205,12 +221,59 @@ def get_twilight(target_image, ttol, wltol):
 def get_bias(target_image, ttol):
     t = target_image
     pars = ['PROCESSED_BIAS', t['instrument'], t['binning'], date_span(t['filename'], ttol)]
-    query = (len(pars)*'/{:s}').format(*pars)
+    query = (len(pars) * '/{:s}').format(*pars)
     return query
 
 
-def main():
+def file_already_present(file_names, condition="all"):
+    """
+    Checks if files from query are already present in the current
+    directory.
 
+    Parameters
+    ----------
+    file_names : list
+        List of file names to check.
+    condition : str
+        If 'all' returns true only if all files are present,
+        and if 'any' returns true if any of the files are present.
+
+    Returns
+    -------
+    ans : bool
+        Boolean indicating the presence of the files.
+    """
+
+    present = []
+    for i in file_names:
+        os.path.isfile(i)
+
+    if condition == "all":
+        ans = all(present)
+    elif condition == "any":
+        ans = any(present)
+    else:
+        raise RuntimeError("Condition must be either 'all' or 'any'.")
+
+    return ans
+
+
+def get_data_generic(fun, hdrpars, list_only, **kwargs):
+    q = fun(hdrpars, **kwargs)
+    print(q)
+
+    file_names = query_archive(q)
+    if not list_only:
+        if not file_already_present(file_names):
+            print('Beginning download\n')
+            download_unpack(q)
+        else:
+            print("Skipping already present files:")
+            for i in file_names:
+                print(i)
+
+
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('image', help='Target image or, in the case of options q or d, query string.')
     parser.add_argument('-a', '--arc', help='Get arc', action='store_true')
@@ -262,50 +325,27 @@ def main():
 
         # print(hdrpars)
 
-    if args.download:
+        if args.flat:
+            get_data_generic(fun=get_flat, hdrpars=hdrpars, list_only=args.list_only, ttol=int(args.flat_ttol),
+                             wltol=float(args.flat_wltol))
+
+        if args.twilight:
+            get_data_generic(fun=get_twilight, hdrpars=hdrpars, list_only=args.list_only, ttol=int(args.bias_ttol),
+                             wltol=float(args.twilight_wltol))
+
+        if args.bias:
+            get_data_generic(fun=get_bias, hdrpars=hdrpars, list_only=args.list_only, ttol=int(args.bias_ttol))
+
+        if args.arc:
+            get_data_generic(fun=get_arc, hdrpars=hdrpars, list_only=args.list_only, ttol=int(args.arc_ttol))
+    elif args.download:
         download_unpack(args.image)
     elif args.query_only:
         q = args.image
         query_archive(q)
     else:
-        if args.flat:
-            q = get_flat(hdrpars, ttol=int(args.flat_ttol),
-                         wltol=float(args.flat_wltol))
-            print(q)
+        raise RuntimeError()
 
-            query_archive(q)
-            if not args.list_only:
-                print('Beginning download\n')
-                download_unpack(q)
-
-        if args.twilight:
-            q = get_twilight(hdrpars, ttol=int(args.twilight_ttol),
-                             wltol=float(args.twilight_wltol))
-            print(q)
-
-            query_archive(q)
-            if not args.list_only:
-                print('Beginning download\n')
-                download_unpack(q)
-
-        if args.bias:
-            q = get_bias(hdrpars, ttol=int(args.bias_ttol))
-            print(q)
-
-            query_archive(q)
-            if not args.list_only:
-                print('Beginning download\n')
-                download_unpack(q)
-
-        if args.arc:
-            q = get_arc(hdrpars, ttol=int(args.arc_ttol))
-            print(q)
-
-            query_archive(q)
-            if not args.list_only:
-                print('Beginning download\n')
-                download_unpack(q)
 
 if __name__ == '__main__':
-
     main()
